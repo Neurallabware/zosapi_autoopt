@@ -211,7 +211,7 @@ for analysis_type, file_path in saved_files.items():
 
 ## ⚙️ 依赖要求 | Requirements
 
-- **Python 3.7+**
+- **Python <=3.8,pythonnet==2.5.2**
 - **Zemax OpticStudio** (支持Python API | with Python API support)
 - **matplotlib** (绘图 | plotting)
 - **numpy** (数值计算 | numerical computation)
