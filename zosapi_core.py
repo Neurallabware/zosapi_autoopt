@@ -65,18 +65,15 @@ class ZOSAPIManager:
         if auto_connect:
             self.connect(custom_path)
     
-    def connect(self, custom_path: Optional[str] = None) -> None:
+    def connect(self, custom_path: Optional[str] = None) -> bool:
         """
         连接到 Zemax OpticStudio
         
         Args:
             custom_path: 自定义 OpticStudio 安装路径
             
-        Raises:
-            InitializationException: 初始化失败
-            ConnectionException: 连接失败
-            LicenseException: 许可证无效
-            SystemNotPresentException: 无法获取系统
+        Returns:
+            bool: 连接是否成功
         """
         try:
             logger.info("开始初始化 ZOSAPI 连接...")
@@ -101,11 +98,12 @@ class ZOSAPIManager:
             
             self.is_connected = True
             logger.info("ZOSAPI 连接成功!")
+            return True
             
         except Exception as e:
             logger.error(f"ZOSAPI 连接失败: {str(e)}")
             self.disconnect()
-            raise
+            return False
     
     def _setup_nethelper(self) -> None:
         """设置 NetHelper"""

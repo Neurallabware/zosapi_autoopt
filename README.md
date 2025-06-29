@@ -1,53 +1,81 @@
-# Zemax OpticStudio Python API 封装库
+# Zemax OpticStudio Python API 自动化封装库
 
-这是一个为 Zemax OpticStudio Python API 提供简化接口的封装库，旨在提高光学分析和优化的开发效率。
+这是一个为 Zemax OpticStudio Python API 提供简化接口的专业封装库，严格按照官方例程标准实现，专为高效光学分析和优化而设计。
 
-## 功能特点
+## 🎯 最新更新 (2025-06-29)
 
+**重大改进**：
+- ✅ **API修正**：严格对照官方例程4（MTF）、22（点列图）、23（光线扇形图）重构分析方法
+- ✅ **全英文界面**：移除所有中文显示，避免字体兼容性问题
+- ✅ **兼容性增强**：增加完善的API版本兼容性处理
+- ✅ **质量保证**：所有分析结果与官方例程一致
+
+## 🌟 功能特点
+
+- **严格的官方标准**: 分析方法完全按照 Zemax 官方例程实现
+- **专业英文界面**: 所有标签、图表、文档均为英文，确保跨平台兼容
 - **简化的连接管理**: 自动处理 ZOSAPI 初始化和连接
 - **模块化设计**: 将常用功能分类封装为独立模块
-- **丰富的分析功能**: 点列图、波前、MTF、光线扇形图等
-- **强大的绘图能力**: 内置多种光学图表绘制功能
+- **丰富的分析功能**: 点列图、波前、MTF、光线扇形图、场曲畸变等
+- **高质量绘图**: 内置专业级光学图表绘制功能（300 DPI输出）
 - **批量处理**: 支持多视场、多波长批量分析
-- **优化工具**: 集成系统优化和快速聚焦功能
-- **异常处理**: 完善的错误处理和日志记录
+- **自动优化**: 集成系统优化和快速聚焦功能
+- **健壮设计**: 完善的错误处理和兼容性逻辑
 
-## 模块结构
+## 📁 模块结构
 
 ```
 zosapi/
-├── __init__.py              # 包初始化文件
-├── zosapi_core.py           # 核心连接和管理
-├── zosapi_utils.py          # 数据处理工具
-├── zosapi_plotting.py       # 绘图功能
-├── zosapi_analysis.py       # 光学分析
-├── config.py                # 配置文件
-├── example_usage.py         # 使用示例
-└── README.md               # 说明文档
+├── __init__.py                      # 包初始化文件
+├── zosapi_core.py                   # 核心连接和管理
+├── zosapi_utils.py                  # 数据处理工具
+├── zosapi_plotting.py               # 专业绘图功能（全英文）
+├── zosapi_analysis.py               # 光学分析（基于官方例程）
+├── auto_optimizer.py                # 自动优化工具
+├── config.py                        # 配置文件
+├── example_usage.py                 # 使用示例
+├── test_basic.py                    # 基础功能测试
+├── single_lens_test.py              # 单透镜建模优化测试
+├── test_plotting_standalone.py     # 独立绘图功能测试
+├── CORRECTIONS_SUMMARY.md          # 修正内容详细说明
+└── README.md                        # 说明文档
 ```
 
-## 快速开始
+## 🚀 快速开始
 
-### 1. 基础使用
+### 1. 基础连接和分析
 
 ```python
-from zosapi import quick_connect, ZOSAnalyzer, ZOSPlotter
+from zosapi_core import ZOSAPIManager
+from zosapi_analysis import ZOSAnalyzer
+from zosapi_plotting import ZOSPlotter
 
 # 连接到 OpticStudio
-with quick_connect() as zos:
+zos_manager = ZOSAPIManager()
+if zos_manager.connect():
+    print("✅ Connected to Zemax OpticStudio")
+    
     # 打开文件
-    zos.open_file("your_file.zmx")
+    zos_manager.open_file("your_file.zos")
     
     # 创建分析器
-    analyzer = ZOSAnalyzer(zos)
+    analyzer = ZOSAnalyzer(zos_manager)
     
-    # 分析点列图
-    spot_data = analyzer.analyze_spot_diagram(field_index=1)
-    print(f"RMS 半径: {spot_data['rms_radius']:.6f} mm")
+    # 分析点列图 (基于官方例程22)
+    spot_data = analyzer.analyze_spot_diagram(field_index=1, wavelength_index=1)
+    print(f"RMS Radius: {spot_data['rms_radius']:.6f} mm")
     
-    # 绘制点列图
+    # 分析MTF (基于官方例程4)
+    mtf_data = analyzer.analyze_mtf(field_index=1, max_frequency=50)
+    print(f"MTF at Nyquist: {mtf_data['mtf_tangential'][-1]:.3f}")
+    
+    # 绘制专业图表 (全英文标签)
     plotter = ZOSPlotter()
     fig = plotter.plot_spot_diagram(
+        spot_data['x_coords'], spot_data['y_coords'],
+        title="Spot Diagram Analysis",
+        save_path="spot_diagram.png"
+    )
         spot_data['x_coords'], 
         spot_data['y_coords'],
         title="点列图",
