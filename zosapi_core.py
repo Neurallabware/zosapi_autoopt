@@ -1,7 +1,7 @@
 """
 Zemax OpticStudio Python API 核心模块
 提供统一的初始化、连接管理和基础操作功能
-Author: Your Name
+Author: allin-love
 Date: 2025-06-29
 """
 

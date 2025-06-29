@@ -1,7 +1,7 @@
 """
 Zemax OpticStudio Python API 分析模块
 提供各种光学分析功能的封装
-Author: Your Name
+Author: allin-love
 Date: 2025-06-29
 """
 
@@ -30,123 +30,203 @@ class ZOSAnalyzer:
         if not self.zos.is_connected:
             raise ValueError("ZOSAPI 管理器未连接")
     
-    def analyze_spot_diagram(self, field_index: int = 1, wavelength_index: int = 1,
+    def analyze_spot_diagram(self, field_index: int = 0, wavelength_index: int = 0,
                            surface_index: Optional[int] = None, 
-                           ray_density: int = 3) -> Dict[str, Any]:
+                           max_rays: int = 500) -> Dict[str, Any]:
         """
-        分析点列图 (基于官方例程22的实现)
+        分析点列图 (使用批量光线追迹，参考官方例程22)
         
         Args:
-            field_index: 视场索引 (1-based)
-            wavelength_index: 波长索引 (1-based) 
+            field_index: 视场索引 (0-based for internal use)
+            wavelength_index: 波长索引 (0-based for internal use) 
             surface_index: 面索引，None 表示像面
-            ray_density: 光线密度 (1-8)
+            max_rays: 最大光线数
             
         Returns:
             点列图分析结果
         """
         try:
-            # 获取分析器 - 严格按照例程22的方法
-            analyses = self.zos.TheSystem.Analyses
-            spot_analysis = analyses.New_Analysis(self.zos.ZOSAPI.Analysis.AnalysisIDM.StandardSpot)
-            
-            # 设置参数 - 严格参考例程22
-            settings = spot_analysis.GetSettings()
-            
-            # 使用官方例程22的设置方法（包含兼容性处理）
             try:
-                # 新API方法
-                settings.Field.SetFieldNumber(field_index)
-                settings.Wavelength.SetWavelengthNumber(wavelength_index)
-                # 设置参考点为质心（例程22中的设置）
-                settings.ReferTo = self.zos.ZOSAPI.Analysis.Settings.RMS.ReferTo.Centroid
-            except AttributeError:
-                # 备用API方法
-                try:
-                    settings.Fields.SetFieldNumber(field_index)
-                    settings.Wavelengths.SetWavelengthNumber(wavelength_index)
-                except AttributeError:
-                    # 更旧的API方法
-                    try:
-                        settings.FieldNumber = field_index
-                        settings.WavelengthNumber = wavelength_index
-                    except:
-                        pass  # 使用默认设置
+                from System import Enum, Int32, Double
+            except ImportError:
+                # 如果System不可用，回退到标准spot analysis
+                return self._fallback_spot_analysis(field_index, wavelength_index, max_rays)
             
-            if surface_index is not None:
-                try:
-                    settings.Surface.SetSurfaceNumber(surface_index)
-                except:
-                    pass
+            import random
             
-            # 设置光线密度
-            try:
-                settings.RayDensity = ray_density
-            except:
-                pass
-                
-            # 运行分析
-            spot_analysis.ApplyAndWaitForCompletion()
+            system = self.zos.TheSystem
+            fields = system.SystemData.Fields
+            wavelengths = system.SystemData.Wavelengths
             
-            # 获取结果 - 严格参考例程22的方法
-            results = spot_analysis.GetResults()
+            # Convert to 1-based for Zemax API
+            zemax_field_idx = field_index + 1
+            zemax_wave_idx = wavelength_index + 1
             
-            rms_radius = 0.0
-            geo_radius = 0.0
+            # 获取视场信息
+            field = fields.GetField(zemax_field_idx)
+            
+            # 确定最大视场值用于归一化
+            max_field = 0.0
+            for i in range(1, fields.NumberOfFields + 1):
+                if abs(fields.GetField(i).Y) > max_field:
+                    max_field = abs(fields.GetField(i).Y)
+            if max_field == 0:
+                max_field = 1.0
+            
+            # 归一化视场坐标
+            hx_norm = field.X / max_field
+            hy_norm = field.Y / max_field
+            
+            # 初始化批量光线追迹
+            raytrace = system.Tools.OpenBatchRayTrace()
+            nsur = system.LDE.NumberOfSurfaces
+            
+            # 创建光线数据缓冲区
+            normUnPolData = raytrace.CreateNormUnpol(max_rays, self.zos.ZOSAPI.Tools.RayTrace.RaysType.Real, nsur)
+            
+            # 填充缓冲区：为当前视场和波长添加光线
+            normUnPolData.ClearData()
+            for i in range(max_rays):
+                # 在单位圆内生成随机光瞳坐标
+                while True:
+                    px = random.random() * 2 - 1
+                    py = random.random() * 2 - 1
+                    if px*px + py*py <= 1:
+                        break
+                normUnPolData.AddRay(zemax_wave_idx, hx_norm, hy_norm, px, py, 
+                                   Enum.Parse(self.zos.ZOSAPI.Tools.RayTrace.OPDMode, "None"))
+            
+            # 执行追迹
+            raytrace.RunAndWaitForCompletion()
+            
+            # 读取结果
+            normUnPolData.StartReadingResults()
+            
+            # 为.NET引用传递创建占位符
+            sysInt = Int32(1)
+            sysDbl = Double(1.0)
+            
             x_coords = []
             y_coords = []
             
-            try:
-                # 按照例程22的方法提取RMS和几何半径
-                spot_data = results.SpotData
-                rms_radius = spot_data.GetRMSSpotSizeFor(field_index, wavelength_index)
-                geo_radius = spot_data.GetGeoSpotSizeFor(field_index, wavelength_index)
-                
-                # 尝试获取光线坐标数据 (例程22没有直接提取单个光线数据，我们用统计方法生成)
-                import numpy as np
-                num_rays = 100
-                # 基于RMS半径生成合理的光线分布（近似高斯分布）
-                angles = np.random.uniform(0, 2*np.pi, num_rays)
-                radii = np.random.rayleigh(rms_radius * 0.7, num_rays)  # 瑞利分布近似
-                x_coords = list(radii * np.cos(angles))
-                y_coords = list(radii * np.sin(angles))
-                
-            except Exception as e:
-                logger.warning(f"获取点列图数据失败，使用默认值: {str(e)}")
-                # 使用默认值
-                rms_radius = 0.01
-                geo_radius = 0.02
-                import numpy as np
-                num_rays = 100
-                x_coords = list(np.random.normal(0, rms_radius, num_rays))
-                y_coords = list(np.random.normal(0, rms_radius, num_rays))
+            # 读取第一条光线
+            output = normUnPolData.ReadNextResult(sysInt, sysInt, sysInt, sysDbl, sysDbl, sysDbl, 
+                                                sysDbl, sysDbl, sysDbl, sysDbl, sysDbl, sysDbl, sysDbl, sysDbl)
             
-            processed_data = {
-                "x_coords": x_coords,
-                "y_coords": y_coords,
-                "rms_radius": rms_radius,
-                "geometric_radius": geo_radius,
-                "ray_count": len(x_coords),
-                "field_index": field_index,
-                "wavelength_index": wavelength_index,
-                "surface_index": surface_index,
-                "ray_density": ray_density
+            # 循环读取所有光线结果
+            while output[0]:  # success flag
+                # 检查错误码和渐晕码
+                if output[2] == 0 and output[3] == 0:  # 有效光线
+                    x_coords.append(output[4])  # 像面X坐标
+                    y_coords.append(output[5])  # 像面Y坐标
+                
+                # 读取下一条光线
+                output = normUnPolData.ReadNextResult(sysInt, sysInt, sysInt, sysDbl, sysDbl, sysDbl,
+                                                    sysDbl, sysDbl, sysDbl, sysDbl, sysDbl, sysDbl, sysDbl, sysDbl)
+            
+            # 计算RMS半径
+            if x_coords and y_coords:
+                x_arr = np.array(x_coords)
+                y_arr = np.array(y_coords)
+                rms_radius = np.sqrt(np.mean(x_arr**2 + y_arr**2))
+            else:
+                rms_radius = 0.0
+            
+            # 清理
+            raytrace.Close()
+            
+            return {
+                'x_coords': x_coords,
+                'y_coords': y_coords,
+                'rms_radius': rms_radius,
+                'num_rays': len(x_coords),
+                'field_index': field_index,
+                'wavelength_index': wavelength_index
             }
             
-            # 关闭分析
-            spot_analysis.Close()
+        except Exception as e:
+            logger.error(f"Spot diagram analysis failed: {e}")
+            # 不创建仿真数据，明确报告分析失败
+            return {
+                'x_coords': [],
+                'y_coords': [],
+                'rms_radius': None,
+                'num_rays': 0,
+                'field_index': field_index,
+                'wavelength_index': wavelength_index,
+                'error': f'Batch ray trace failed: {str(e)}'
+            }
+
+    def _fallback_spot_analysis(self, field_index: int, wavelength_index: int, max_rays: int) -> Dict[str, Any]:
+        """Fallback spot analysis using standard Zemax spot analysis - NO simulation data"""
+        try:
+            # 使用标准spot analysis - 只获取真实的Zemax数据
+            analyses = self.zos.TheSystem.Analyses
+            spot_analysis = analyses.New_Analysis(self.zos.ZOSAPI.Analysis.AnalysisIDM.StandardSpot)
             
-            return processed_data
+            settings = spot_analysis.GetSettings()
+            settings.Field.SetFieldNumber(field_index + 1)  # Convert to 1-based
+            settings.Wavelength.SetWavelengthNumber(wavelength_index + 1)
+            settings.RayDensity = 6  # High density for more rays
+            
+            spot_analysis.ApplyAndWaitForCompletion()
+            results = spot_analysis.GetResults()
+            
+            # 尝试从真实的Zemax结果中提取数据
+            try:
+                # 获取RMS值 - 这是真实的分析结果
+                rms_radius = results.SpotData.GetRMSSpotSizeFor(field_index + 1, wavelength_index + 1)
+                
+                # 尝试获取真实的光线数据
+                # 注意：标准Spot Analysis可能不直接提供光线坐标
+                # 我们需要报告这个限制而不是创建假数据
+                logger.warning("Standard spot analysis does not provide individual ray coordinates")
+                
+                # 返回真实的RMS数据，但说明坐标数据不可用
+                result = {
+                    'x_coords': [],  # 真实分析中不可用
+                    'y_coords': [],  # 真实分析中不可用  
+                    'rms_radius': rms_radius,  # 真实的RMS值
+                    'num_rays': 0,  # 无法获取单独光线
+                    'field_index': field_index,
+                    'wavelength_index': wavelength_index,
+                    'analysis_type': 'standard_spot_rms_only'  # 标记数据类型
+                }
+                
+            except Exception as e:
+                logger.error(f"Failed to extract data from Zemax spot analysis: {e}")
+                # 连真实数据都无法获取，返回错误信息
+                result = {
+                    'x_coords': [],
+                    'y_coords': [],
+                    'rms_radius': None,
+                    'num_rays': 0,
+                    'field_index': field_index,
+                    'wavelength_index': wavelength_index,
+                    'error': 'Failed to extract real Zemax data'
+                }
+            
+            spot_analysis.Close()
+            return result
             
         except Exception as e:
-            logger.error(f"点列图分析失败: {str(e)}")
-            raise
-    
+            logger.error(f"Fallback spot analysis failed: {e}")
+            # 完全失败时，明确报告无法获取真实数据
+            return {
+                'x_coords': [],
+                'y_coords': [],
+                'rms_radius': None,
+                'num_rays': 0,
+                'field_index': field_index,
+                'wavelength_index': wavelength_index,
+                'error': f'Analysis failed: {str(e)}'
+            }
+
     def analyze_wavefront(self, field_index: int = 1, wavelength_index: int = 1,
                          surface_index: Optional[int] = None,
                          sampling: int = 32) -> Dict[str, Any]:
         """
-        分析波前
+        分析波前 - 使用真实的Zemax波前分析
         
         Args:
             field_index: 视场索引 (1-based)
@@ -158,53 +238,83 @@ class ZOSAnalyzer:
             波前分析结果
         """
         try:
-            # 临时实现：创建模拟波前数据
-            import numpy as np
+            # 使用真实的Zemax波前分析
+            analyses = self.zos.TheSystem.Analyses
+            wf_analysis = analyses.New_Analysis(self.zos.ZOSAPI.Analysis.AnalysisIDM.WavefrontMap)
             
-            logger.warning("波前分析使用模拟数据")
+            settings = wf_analysis.GetSettings()
+            settings.Field.SetFieldNumber(field_index)
+            settings.Wavelength.SetWavelengthNumber(wavelength_index)
+            if surface_index is not None:
+                settings.Surface = surface_index
             
-            # 创建坐标网格
-            x = np.linspace(-1, 1, sampling)
-            y = np.linspace(-1, 1, sampling)
-            xx, yy = np.meshgrid(x, y)
+            wf_analysis.ApplyAndWaitForCompletion()
+            results = wf_analysis.GetResults()
             
-            # 创建模拟波前数据（包含一些像差）
-            r = np.sqrt(xx**2 + yy**2)
-            theta = np.arctan2(yy, xx)
+            # 尝试从真实结果中提取数据
+            try:
+                # 这里需要根据实际的Zemax API来提取波前数据
+                # 注意：不同版本的API可能有不同的方法
+                logger.warning("Wavefront data extraction depends on specific Zemax API version")
+                
+                # 获取基本的波前统计信息
+                rms_wfe = None
+                pv_wfe = None
+                
+                # 如果无法提取详细数据，至少报告分析已完成
+                result = {
+                    "wavefront": None,  # 详细波前数据需要API支持
+                    "x_coords": None,
+                    "y_coords": None,
+                    "mask": None,
+                    "rms_wfe": rms_wfe,
+                    "pv_wfe": pv_wfe,
+                    "shape": (sampling, sampling),
+                    "field_index": field_index,
+                    "wavelength_index": wavelength_index,
+                    "surface_index": surface_index,
+                    "sampling": sampling,
+                    "analysis_type": "real_zemax_wavefront",
+                    "note": "Detailed wavefront data extraction requires specific API support"
+                }
+                
+            except Exception as e:
+                logger.error(f"Failed to extract wavefront data: {e}")
+                result = {
+                    "wavefront": None,
+                    "x_coords": None,
+                    "y_coords": None,
+                    "mask": None,
+                    "rms_wfe": None,
+                    "pv_wfe": None,
+                    "shape": (sampling, sampling),
+                    "field_index": field_index,
+                    "wavelength_index": wavelength_index,
+                    "surface_index": surface_index,
+                    "sampling": sampling,
+                    "error": f"Failed to extract wavefront data: {str(e)}"
+                }
             
-            # 简单的波前误差模型
-            wavefront = 0.1 * r**2 + 0.05 * r**4 + 0.02 * r**3 * np.cos(3*theta)
-            
-            # 创建圆形掩膜
-            mask = r <= 1.0
-            
-            # 应用掩膜
-            masked_wf = np.where(mask, wavefront, np.nan)
-            
-            # 计算统计量
-            valid_data = masked_wf[~np.isnan(masked_wf)]
-            rms_wfe = np.sqrt(np.mean(valid_data**2)) if len(valid_data) > 0 else 0.0
-            pv_wfe = (np.max(valid_data) - np.min(valid_data)) if len(valid_data) > 0 else 0.0
-            
-            result = {
-                "wavefront": masked_wf,
-                "x_coords": xx,
-                "y_coords": yy,
-                "mask": mask,
-                "rms_wfe": rms_wfe,
-                "pv_wfe": pv_wfe,
-                "shape": (sampling, sampling),
-                "field_index": field_index,
-                "wavelength_index": wavelength_index,
-                "surface_index": surface_index,
-                "sampling": sampling
-            }
-            
+            wf_analysis.Close()
             return result
             
         except Exception as e:
             logger.error(f"波前分析失败: {str(e)}")
-            raise
+            # 不创建仿真数据，报告真实的失败
+            return {
+                "wavefront": None,
+                "x_coords": None,
+                "y_coords": None,
+                "mask": None,
+                "rms_wfe": None,
+                "pv_wfe": None,
+                "shape": (sampling, sampling),
+                "field_index": field_index,
+                "wavelength_index": wavelength_index,
+                "surface_index": surface_index,
+                "sampling": sampling,
+                "error": f"Wavefront analysis failed: {str(e)}"
+            }
     
     def analyze_mtf(self, field_index: int = 0, wavelength_index: int = 0,
                    frequency_type: str = "CyclesPerMM",
@@ -279,25 +389,25 @@ class ZOSAnalyzer:
                 # 关闭分析
                 mtf_analysis.Close()
                 
-                # 如果无法获取数据，创建模拟数据
+                # 如果无法获取真实数据，报告失败而不是创建仿真数据
                 if not frequencies:
-                    import numpy as np
-                    frequencies = list(np.linspace(0, max_frequency, num_points))
-                    # 创建理想的MTF曲线
-                    mtf_tangential = [max(0, 1 - f/max_frequency) for f in frequencies]
-                    mtf_sagittal = [max(0, 0.9 - f/max_frequency) for f in frequencies]
+                    logger.error("Failed to extract real MTF data from Zemax analysis")
+                    frequencies = []
+                    mtf_tangential = []
+                    mtf_sagittal = []
                 
             except Exception as e:
-                logger.warning(f"获取MTF数据失败，使用模拟数据: {str(e)}")
-                import numpy as np
-                frequencies = list(np.linspace(0, max_frequency, num_points))
-                mtf_tangential = [max(0, 1 - f/max_frequency) for f in frequencies]
-                mtf_sagittal = [max(0, 0.9 - f/max_frequency) for f in frequencies]
+                logger.error(f"获取MTF数据失败: {str(e)}")
+                # 不创建仿真数据，返回空结果
+                frequencies = []
+                mtf_tangential = []
+                mtf_sagittal = []
                 
                 # 尝试关闭分析（如果还未关闭）
                 try:
                     mtf_analysis.Close()
                 except:
+                    pass
                     pass
             
             result = {
@@ -316,14 +426,14 @@ class ZOSAnalyzer:
             logger.error(f"MTF 分析失败: {str(e)}")
             raise
     
-    def analyze_ray_fan(self, field_index: int = 1, wavelength_index: int = 1,
+    def analyze_ray_fan(self, field_index: int = 0, wavelength_index: int = 0,
                        fan_type: str = "Y", num_rays: int = 21) -> Dict[str, Any]:
         """
         分析光线扇形图 (基于官方例程23的实现)
         
         Args:
-            field_index: 视场索引 (1-based)
-            wavelength_index: 波长索引 (1-based)
+            field_index: 视场索引 (0-based for internal use)
+            wavelength_index: 波长索引 (0-based for internal use)
             fan_type: 扇形类型 ("X", "Y")
             num_rays: 光线数量
             
@@ -331,6 +441,10 @@ class ZOSAnalyzer:
             光线扇形图分析结果
         """
         try:
+            # Convert to 1-based for Zemax API
+            zemax_field_idx = field_index + 1
+            zemax_wave_idx = wavelength_index + 1
+            
             # 获取分析器 - 严格按照例程23的方法
             analyses = self.zos.TheSystem.Analyses
             fan_analysis = analyses.New_Analysis(self.zos.ZOSAPI.Analysis.AnalysisIDM.RayFan)
@@ -340,8 +454,8 @@ class ZOSAnalyzer:
             settings.NumberOfRays = int(num_rays / 2)  # 例程23中使用max_rays/2
             
             # 设置视场和波长 - 使用官方API方法（例程23中的精确实现）
-            settings.Field.SetFieldNumber(field_index)
-            settings.Wavelength.SetWavelengthNumber(wavelength_index)
+            settings.Field.SetFieldNumber(zemax_field_idx)
+            settings.Wavelength.SetWavelengthNumber(zemax_wave_idx)
             
             # 设置扇形类型（如果API支持）
             try:
@@ -388,21 +502,20 @@ class ZOSAnalyzer:
                     # 备用方法：直接从结果数据提取
                     data = results.Data
                     if data is not None:
-                        pupil_coords = list(range(-num_rays//2, num_rays//2 + 1))
-                        ray_errors = [0.001 * x**3 for x in pupil_coords]  # 简单模型
+                        # 尝试从真实数据中提取，不创建仿真数据
+                        logger.warning("Cannot extract detailed ray fan data from results.Data")
                 
-                # 如果仍无法获取数据，创建模拟数据
+                # 如果无法获取真实数据，报告失败而不是创建仿真数据
                 if not pupil_coords:
-                    import numpy as np
-                    pupil_coords = list(np.linspace(-1, 1, num_rays))
-                    # 创建简单的球差模型
-                    ray_errors = [0.01 * x**3 for x in pupil_coords]
+                    logger.error("Failed to extract real ray fan data from Zemax analysis")
+                    pupil_coords = []
+                    ray_errors = []
                     
             except Exception as e:
-                logger.warning(f"获取光线扇形图数据失败，使用模拟数据: {str(e)}")
-                import numpy as np
-                pupil_coords = list(np.linspace(-1, 1, num_rays))
-                ray_errors = [0.01 * x**3 for x in pupil_coords]
+                logger.error(f"获取光线扇形图数据失败: {str(e)}")
+                # 不创建仿真数据，返回空结果
+                pupil_coords = []
+                ray_errors = []
             
             result = {
                 "pupil_coords": pupil_coords,

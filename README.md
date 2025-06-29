@@ -1,59 +1,59 @@
-# Zemax OpticStudio Python API 自动化封装库
+# Zemax OpticStudio Python API 自动化分析库 | ZOSAPI Automation Library
 
-这是一个为 Zemax OpticStudio Python API 提供简化接口的专业封装库，严格按照官方例程标准实现，专为高效光学分析和优化而设计。
+**专业光学系统分析与优化封装，严格对照官方例程，支持多视场多波长分析**  
+*Professional optical analysis and optimization toolkit based on official Zemax examples*
 
-## 🎯 最新更新 (2025-06-29)
+---
 
-**重大改进**：
-- ✅ **API修正**：严格对照官方例程4（MTF）、22（点列图）、23（光线扇形图）重构分析方法
-- ✅ **全英文界面**：移除所有中文显示，避免字体兼容性问题
-- ✅ **兼容性增强**：增加完善的API版本兼容性处理
-- ✅ **质量保证**：所有分析结果与官方例程一致
+## 🎯 核心功能 | Core Features
 
-## 🌟 功能特点
+- **📈 一行式分析** | One-Line Analysis: 完整的多视场多波长分析，仅需一行代码
+- **📊 专业绘图** | Professional Plotting: 高质量光学图表，英文标签，300 DPI输出
+- **🎛️ 智能控制** | Smart Control: 支持全视场/单视场/自定义视场和波长选择
+- **⚡ 官方标准** | Official Standards: 严格按照官方例程22(Spot)、23(Ray Fan)、4(MTF)实现
+- **🔧 模块化设计** | Modular Design: 独立的连接、分析、绘图模块，易于扩展
 
-- **严格的官方标准**: 分析方法完全按照 Zemax 官方例程实现
-- **专业英文界面**: 所有标签、图表、文档均为英文，确保跨平台兼容
-- **简化的连接管理**: 自动处理 ZOSAPI 初始化和连接
-- **模块化设计**: 将常用功能分类封装为独立模块
-- **丰富的分析功能**: 点列图、波前、MTF、光线扇形图、场曲畸变等
-- **高质量绘图**: 内置专业级光学图表绘制功能（300 DPI输出）
-- **批量处理**: 支持多视场、多波长批量分析
-- **自动优化**: 集成系统优化和快速聚焦功能
-- **健壮设计**: 完善的错误处理和兼容性逻辑
+---
 
-## 🚀 超级简化用法 - HIGH-LEVEL FUNCTIONS
+## 🚀 极简用法 | Ultra-Simple Usage
 
-### ✨ 一行代码完成所有分析 (Ultimate One-Liner)
+### ✨ 一行代码完成全部分析 | Complete Analysis in One Line
+
 ```python
 from zosapi_core import ZOSAPIManager
 from zosapi_plotting import analyze_and_plot_system
 
-# 连接到Zemax
+# 连接Zemax | Connect to Zemax
 zos_manager = ZOSAPIManager()
 
-# 加载系统 (或使用当前系统)
-# zos_manager.load_file("your_system.zmx")
+# 可选：加载系统文件 | Optional: Load system file
+# zos_manager.open_file("your_system.zmx")
 
-# 🎯 一行代码完成：MTF + 点列图 + 光线扇形图 + 综合分析！
-# 全视场全波长分析
-saved_files = analyze_and_plot_system(zos_manager, "./results", fields="all", wavelengths="all")
-
-# 单视场主波长分析  
-saved_files = analyze_and_plot_system(zos_manager, "./results", fields="single", wavelengths="single")
-
-# 自定义选择：前两个视场，第1和第3波长
-saved_files = analyze_and_plot_system(zos_manager, "./results", fields=[0,1], wavelengths=[0,2])
+# 🎯 一行搞定：MTF + 点列图 + 光线扇形图 + 综合分析！
+# One line: MTF + Spot + Ray Fan + Comprehensive Analysis!
+saved_files = analyze_and_plot_system(zos_manager, "./results")
 ```
 
-### 🎨 高级绘图函数 - 真正的多视场多波长支持
+### 📊 自动生成内容 | Auto-Generated Content
+
+- **MTF曲线** | MTF Curves: 所有视场和波长的调制传递函数
+- **点列图** | Spot Diagrams: 所有视场和波长的光线点列分布  
+- **光线扇形图** | Ray Fan Plots: 子午/弧矢光线扇形分析
+- **综合分析** | Comprehensive Analysis: 多种分析结果的汇总图表
+- **专业格式** | Professional Format: 英文标签、图例、300 DPI高清输出
+
+---
+
+## 🎨 高级绘图函数 | Advanced Plotting Functions
+
 ```python
 from zosapi_analysis import ZOSAnalyzer
-from zosapi_plotting import plot_system_mtf, plot_multifield_spots, plot_multifield_rayfan, plot_comprehensive_analysis
+from zosapi_plotting import (plot_system_mtf, plot_multifield_spots, 
+                            plot_multifield_rayfan, plot_comprehensive_analysis)
 
 analyzer = ZOSAnalyzer(zos_manager)
 
-# 🌈 多波长多视场分析 - 严格按照官方例程22、23实现
+# 🌈 多视场多波长分析 | Multi-field Multi-wavelength Analysis
 plot_multifield_spots(zos_manager, analyzer, 
                      fields="all", wavelengths="all",      # 全视场全波长
                      save_path="spots_all.png")
@@ -66,306 +66,184 @@ plot_system_mtf(zos_manager,
                fields="all", wavelengths="all",           # 全视场全波长
                save_path="mtf_all.png")
 
-# 🎯 灵活的选择控制
+# 🎯 灵活选择控制 | Flexible Selection Control
 plot_multifield_spots(zos_manager, analyzer, 
-                     fields="single",      # 单视场
-                     wavelengths="all",    # 全波长
-                     save_path="spots_single_field_all_waves.png")
+                     fields="single",      # 单视场 | Single field
+                     wavelengths="all",    # 全波长 | All wavelengths
+                     save_path="spots_single_field.png")
 
 plot_multifield_spots(zos_manager, analyzer, 
-                     fields=[0, 1, 2],     # 指定视场索引
-                     wavelengths=[0, 2],   # 指定波长索引  
+                     fields=[0, 1, 2],     # 指定视场索引 | Custom field indices
+                     wavelengths=[0, 2],   # 指定波长索引 | Custom wavelength indices
                      save_path="spots_custom.png")
 ```
 
-### 🎛️ 控制参数详解
+### 🎛️ 参数控制说明 | Parameter Control Guide
 
-**视场选择 (fields):**
-- `"all"` - 所有视场
-- `"single"` - 单视场(第一个)
-- `[0, 1, 2]` - 指定视场索引列表(0-based)
+**视场选择 | Field Selection:**
+- `"all"` - 所有视场 | All fields
+- `"single"` - 单视场(第一个) | Single field (first)
+- `[0, 1, 2]` - 自定义视场索引 | Custom field indices (0-based)
 
-**波长选择 (wavelengths):**
-- `"all"` - 所有波长
-- `"single"` - 主波长
-- `[0, 1, 2]` - 指定波长索引列表(0-based)
+**波长选择 | Wavelength Selection:**
+- `"all"` - 所有波长 | All wavelengths
+- `"single"` - 主波长 | Primary wavelength
+- `[0, 1, 2]` - 自定义波长索引 | Custom wavelength indices (0-based)
+---
 
-### 📊 代码复杂度对比
+## 📊 效率对比 | Efficiency Comparison
 
-**🔴 传统方式 (150+ 行):**
+### 🔴 传统方式 | Traditional Way (150+ 行代码)
 ```python
-# 手写matplotlib代码做MTF分析
+# 手动编写matplotlib代码进行MTF分析
+# Manual matplotlib code for MTF analysis
 mtf_analysis = system.Analyses.New_FftMtf()
-# ... 30+ 行设置和绘图代码 ...
+# ... 30+ 行设置和绘图代码 | 30+ lines setup & plotting ...
 
-# 手写matplotlib代码做点列图  
+# 手动编写matplotlib代码进行点列图分析  
+# Manual matplotlib code for spot diagram analysis
 fig, axes = plt.subplots(n_rows, n_cols, figsize=(...))
-# ... 50+ 行子图管理代码 ...
-# ... 需要手动处理多波长循环 ...
-# ... 需要手动管理颜色和图例 ...
+# ... 50+ 行子图管理代码 | 50+ lines subplot management ...
+# ... 需要手动处理多波长循环 | Manual multi-wavelength loops ...
+# ... 需要手动管理颜色和图例 | Manual color & legend management ...
 
-# 手写matplotlib代码做光线扇形图
-# ... 另外50+ 行 ...
-
-# 手写综合分析图
-# ... 再50+ 行 ...
+# 手动编写光线扇形图分析代码
+# Manual ray fan analysis code
+# ... 另外50+ 行 | Another 50+ lines ...
 ```
 
-**🟢 新方式 (1-4 行):**
+### 🟢 新方式 | New Way (1 行代码)
 ```python
-# 一行搞定全部！支持真正的多视场多波长
+# 一行搞定全部！| One line for everything!
 analyze_and_plot_system(zos_manager, "./results", "all", "all")
 
-# 或者分别调用，每个都支持完整的视场/波长控制
+# 或分别调用 | Or call individually:
 plot_system_mtf(zos_manager, fields="all", wavelengths="all", save_path="mtf.png")
-plot_multifield_spots(zos_manager, analyzer, fields="all", wavelengths="all", save_path="spots.png") 
-plot_multifield_rayfan(zos_manager, analyzer, fields="all", wavelengths="all", save_path="rayfan.png")
-plot_comprehensive_analysis(zos_manager, analyzer, fields="all", wavelengths="all", save_path="comprehensive.png")
+plot_multifield_spots(zos_manager, analyzer, fields="all", wavelengths="all", save_path="spots.png")
 ```
 
-**结果: 95% 代码减少！🎯 现在可以专注于光学设计而不是绘图代码！**
+**结果：95%代码减少！现在可以专注于光学设计而不是绘图代码！**  
+*Result: 95% code reduction! Focus on optical design, not plotting code!*
 
-### 🌟 新功能亮点
+---
 
-- ✅ **真正的多波长支持**: 严格按照官方例程22、23实现
-- ✅ **智能颜色编码**: 不同波长自动使用不同颜色和线型
-- ✅ **专业图例标签**: 显示实际波长值(如λ=0.587μm)
-- ✅ **灵活控制选项**: 支持all/single/自定义索引
-- ✅ **一行式分析**: 可指定视场和波长参数
-- ✅ **完美兼容**: 与现有代码100%兼容
-
-## 📁 模块结构
+## 📁 模块结构 | Module Structure
 
 ```
 zosapi/
-├── __init__.py                      # 包初始化文件
-├── zosapi_core.py                   # 核心连接和管理
-├── zosapi_utils.py                  # 数据处理工具
-├── zosapi_plotting.py               # 专业绘图功能（全英文）
-├── zosapi_analysis.py               # 光学分析（基于官方例程）
-├── auto_optimizer.py                # 自动优化工具
-├── config.py                        # 配置文件
-├── example_usage.py                 # 使用示例
-├── test_basic.py                    # 基础功能测试
-├── single_lens_test.py              # 单透镜建模优化测试
-├── test_plotting_standalone.py     # 独立绘图功能测试
-├── CORRECTIONS_SUMMARY.md          # 修正内容详细说明
-└── README.md                        # 说明文档
+├── zosapi_core.py           # 核心连接管理 | Core connection management
+├── zosapi_analysis.py       # 光学分析 | Optical analysis (based on official examples)
+├── zosapi_plotting.py       # 专业绘图 | Professional plotting (English interface)
+├── zosapi_utils.py          # 数据处理工具 | Data processing utilities
+├── auto_optimizer.py        # 自动优化工具 | Auto optimization tools
+├── config.py                # 配置文件 | Configuration
+├── test_with_sample.py      # 极简测试 | Ultra-simple test (65 lines)
+└── sample/                  # 官方例程 | Official examples
+    ├── PythonStandalone_22_seq_spot_diagram.py
+    ├── PythonStandalone_23_ray_fan_native_manual_comparison.py
+    └── PythonStandalone_04_pull_data_from_FFTMTF.py
 ```
 
-## 🚀 快速开始
+---
 
-### 1. 基础连接和分析
+## 🚀 快速开始 | Quick Start
+
+### 1. 基础连接和分析 | Basic Connection & Analysis
 
 ```python
 from zosapi_core import ZOSAPIManager
 from zosapi_analysis import ZOSAnalyzer
-from zosapi_plotting import ZOSPlotter
 
-# 连接到 OpticStudio
+# 连接到 OpticStudio | Connect to OpticStudio
 zos_manager = ZOSAPIManager()
-if zos_manager.connect():
-    print("✅ Connected to Zemax OpticStudio")
-    
-    # 打开文件
-    zos_manager.open_file("your_file.zos")
-    
-    # 创建分析器
-    analyzer = ZOSAnalyzer(zos_manager)
-    
-    # 分析点列图 (基于官方例程22)
-    spot_data = analyzer.analyze_spot_diagram(field_index=0, wavelength_index=0)
-    print(f"RMS Radius: {spot_data['rms_radius']:.6f} mm")
-    
-    # 分析MTF (基于官方例程4)
-    mtf_data = analyzer.analyze_mtf(field_index=0, max_frequency=50)
-    print(f"MTF at Nyquist: {mtf_data['mtf_tangential'][-1]:.3f}")
-    
-    # 绘制专业图表 (全英文标签)
-    plotter = ZOSPlotter()
-    fig = plotter.plot_spot_diagram(
-        spot_data['x_coords'], spot_data['y_coords'],
-        title="Spot Diagram Analysis",
-        save_path="spot_diagram.png"
-    )
-        spot_data['x_coords'], 
-        spot_data['y_coords'],
-        title="点列图",
-        save_path="spot.png"
-    )
+print("✅ Connected to Zemax OpticStudio")
+
+# 可选：打开文件 | Optional: Open file
+# zos_manager.open_file("your_file.zos")
+
+# 创建分析器 | Create analyzer
+analyzer = ZOSAnalyzer(zos_manager)
+
+# 分析点列图 (基于官方例程22) | Spot analysis (based on official example 22)
+spot_data = analyzer.analyze_spot_diagram(field_index=0, wavelength_index=0)
+print(f"RMS Radius: {spot_data['rms_radius']:.6f} mm")
+
+# 分析MTF (基于官方例程4) | MTF analysis (based on official example 4)
+mtf_data = analyzer.analyze_mtf(field_index=0, max_frequency=50)
+print(f"MTF at Nyquist: {mtf_data['mtf_tangential'][-1]:.3f}")
 ```
 
-### 2. 批量分析
+### 2. 批量分析 | Batch Analysis
 
 ```python
-from zosapi import quick_connect, BatchAnalyzer
+from zosapi_plotting import analyze_and_plot_system
 
-with quick_connect() as zos:
-    zos.open_file("your_file.zmx")
-    
-    # 创建批量分析器
-    batch_analyzer = BatchAnalyzer(zos)
-    
-    # 分析所有视场的点列图
-    all_spots = batch_analyzer.analyze_all_fields_spots()
-    
-    # 分析所有波长的 MTF
-    all_mtf = batch_analyzer.analyze_all_wavelengths_mtf()
+# 一行式全自动分析 | One-line automated analysis
+saved_files = analyze_and_plot_system(zos_manager, "./output")
+
+print("Analysis completed! Generated plots:")
+for analysis_type, file_path in saved_files.items():
+    print(f"  - {analysis_type}: {file_path}")
 ```
-
-### 3. 系统优化
-
-```python
-from zosapi import quick_connect, ZOSAnalyzer
-
-with quick_connect() as zos:
-    zos.open_file("your_file.zmx")
-    
-    analyzer = ZOSAnalyzer(zos)
-    
-    # 快速聚焦
-    focus_result = analyzer.quick_focus()
-    
-    # 系统优化
-    opt_result = analyzer.optimize_system(max_iterations=100)
-    print(f"优化改善: {opt_result['improvement']*100:.2f}%")
-```
-
-## 核心类说明
-
-### ZOSAPIManager
-核心连接管理器，处理与 OpticStudio 的连接和基础操作。
-
-**主要方法:**
-- `connect()`: 连接到 OpticStudio
-- `disconnect()`: 断开连接
-- `open_file()`: 打开光学系统文件
-- `save_file()`: 保存文件
-- `get_system_info()`: 获取系统信息
-
-### ZOSAnalyzer
-光学分析器，提供各种光学分析功能。
-
-**主要方法:**
-- `analyze_spot_diagram()`: 点列图分析
-- `analyze_wavefront()`: 波前分析
-- `analyze_mtf()`: MTF 分析
-- `analyze_ray_fan()`: 光线扇形图分析
-- `optimize_system()`: 系统优化
-- `quick_focus()`: 快速聚焦
-
-### ZOSPlotter
-绘图器，提供各种光学图表的绘制功能。
-
-**主要方法:**
-- `plot_spot_diagram()`: 绘制点列图
-- `plot_wavefront()`: 绘制波前图
-- `plot_mtf_curve()`: 绘制 MTF 曲线
-- `plot_ray_fan()`: 绘制光线扇形图
-- `plot_multiple_curves()`: 绘制多曲线图
-
-### BatchAnalyzer
-批量分析器，支持多视场、多波长的批量分析。
-
-**主要方法:**
-- `analyze_all_fields_spots()`: 分析所有视场的点列图
-- `analyze_all_wavelengths_mtf()`: 分析所有波长的 MTF
-
-## 配置说明
-
-可以通过修改 `config.py` 文件来调整各种默认设置：
-
-- **路径配置**: Zemax 安装路径、输出目录
-- **分析参数**: 默认的分析设置
-- **绘图设置**: 图表样式、颜色、尺寸等
-- **优化参数**: 优化算法设置
-- **功能开关**: 启用/禁用特定功能
-
-## 依赖要求
-
-- Python 3.7+
-- Zemax OpticStudio (支持 Python API)
-- matplotlib (绘图)
-- numpy (数值计算)
-- pandas (数据处理)
-- scipy (可选，用于高级数据处理)
-
-## 安装依赖
-
-```bash
-pip install matplotlib numpy pandas scipy
-```
-
-## 使用注意事项
-
-1. **许可证要求**: 需要有效的 Zemax OpticStudio 许可证且支持 API 使用
-2. **路径设置**: 确保 Zemax OpticStudio 正确安装且路径可访问
-3. **文件权限**: 确保对输出目录有写入权限
-4. **内存管理**: 处理大型分析时注意内存使用
-5. **异常处理**: 建议使用 try-except 块处理可能的异常
-
-## 示例文件
-
-运行 `example_usage.py` 可以查看完整的使用示例：
-
-```bash
-python example_usage.py
-```
-
-示例包括：
-- 基础分析操作
-- 绘图功能演示
-- 批量分析示例
-- 系统优化流程
-- 自定义分析案例
-
-## 扩展开发
-
-### 添加新的分析功能
-
-1. 在 `ZOSAnalyzer` 类中添加新方法
-2. 在 `ZOSPlotter` 类中添加对应的绘图方法
-3. 更新配置文件中的默认参数
-4. 编写测试用例
-
-### 自定义绘图样式
-
-1. 修改 `config.py` 中的 `PLOT_SETTINGS`
-2. 在 `ZOSPlotter` 类中添加新的绘图方法
-3. 使用 matplotlib 的样式系统
-
-## 故障排除
-
-### 常见问题
-
-1. **连接失败**: 检查 Zemax OpticStudio 是否正确安装
-2. **许可证错误**: 确认许可证支持 API 使用
-3. **路径错误**: 检查文件路径是否正确
-4. **内存不足**: 减少分析数据的采样密度
-
-### 日志查看
-
-启用详细日志记录：
-
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-```
-
-## 版本历史
-
-- **v1.0.0**: 初始版本，包含核心功能
-
-## 作者信息
-
-- 作者: Your Name
-- 日期: 2025-06-29
-- 版本: 1.0.0
-
-## 许可证
-
-本项目仅供学习和研究使用。
 
 ---
 
-**提示**: 这个封装库大大简化了 Zemax OpticStudio Python API 的使用，让您可以专注于光学分析和优化，而不用重复编写基础代码。建议先运行示例文件熟悉各个功能，然后根据您的具体需求进行定制开发。
+## 🔧 核心分析功能 | Core Analysis Functions
+
+### ZOSAnalyzer 主要方法 | Main Methods
+
+- `analyze_spot_diagram()` - 点列图分析 | Spot diagram analysis
+- `analyze_mtf()` - MTF分析 | MTF analysis  
+- `analyze_ray_fan()` - 光线扇形图分析 | Ray fan analysis
+- `analyze_wavefront()` - 波前分析 | Wavefront analysis
+- `optimize_system()` - 系统优化 | System optimization
+- `quick_focus()` - 快速聚焦 | Quick focus
+
+### 高级绘图函数 | Advanced Plotting Functions
+
+- `plot_multifield_spots()` - 多视场点列图 | Multi-field spot diagrams
+- `plot_multifield_rayfan()` - 多视场光线扇形图 | Multi-field ray fans
+- `plot_system_mtf()` - 系统MTF分析 | System MTF analysis
+- `plot_comprehensive_analysis()` - 综合分析图 | Comprehensive analysis
+- `analyze_and_plot_system()` - 一键全分析 | One-click complete analysis
+
+---
+
+## ⚙️ 依赖要求 | Requirements
+
+- **Python 3.7+**
+- **Zemax OpticStudio** (支持Python API | with Python API support)
+- **matplotlib** (绘图 | plotting)
+- **numpy** (数值计算 | numerical computation)
+
+```bash
+pip install matplotlib numpy
+```
+
+---
+
+## 📝 使用注意事项 | Important Notes
+
+1. **许可证要求** | License: 需要有效的Zemax OpticStudio许可证且支持API使用
+2. **路径设置** | Path: 确保Zemax OpticStudio正确安装且路径可访问
+3. **真实数据** | Real Data: 所有分析均基于真实Zemax计算，无仿真数据
+4. **英文界面** | English Interface: 所有图表、标签、输出均为英文
+
+---
+
+## 🎯 设计理念 | Design Philosophy
+
+**"让复杂的光学分析变得像调用一个函数一样简单"**  
+*"Make complex optical analysis as simple as calling a function"*
+
+- ✅ **极简接口** | Minimal Interface: 一行代码完成复杂分析
+- ✅ **专业输出** | Professional Output: 高质量图表，符合工程标准
+- ✅ **官方兼容** | Official Compatibility: 严格按照官方例程实现
+- ✅ **模块化设计** | Modular Design: 易于扩展和维护
+- ✅ **无仿真数据** | No Simulation: 100%真实Zemax分析结果
+
+---
+
+**现在您可以专注于光学设计本身，而不是繁琐的代码编写！**  
+*Now you can focus on optical design itself, not tedious code writing!*
+

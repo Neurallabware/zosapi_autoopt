@@ -9,7 +9,7 @@ Zemax OpticStudio Python API 封装库
 - zosapi_analysis: 光学分析功能
 - example_usage: 使用示例
 
-Author: Your Name
+Author: allin-love
 Date: 2025-06-29
 Version: 1.0.0
 """
@@ -20,7 +20,7 @@ from zosapi_plotting import ZOSPlotter
 from zosapi_utils import ZOSDataProcessor
 
 __version__ = "1.0.0"
-__author__ = "Your Name"
+__author__ = "allin-love"
 __all__ = [
     # 核心类
     "ZOSAPIManager",

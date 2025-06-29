@@ -1,7 +1,7 @@
 """
 Zemax OpticStudio Python API 工具函数模块
 提供常用的数据处理、转换和辅助功能
-Author: Your Name
+Author: allin-love
 Date: 2025-06-29
 """
 
