@@ -278,6 +278,23 @@ class ZOSAPIManager:
             logger.error(f"关闭文件失败: {str(e)}")
             raise
     
+    def new_file(self) -> None:
+        """
+        创建新文件
+        
+        Raises:
+            SystemNotPresentException: 系统不存在
+        """
+        if self.TheSystem is None:
+            raise SystemNotPresentException("无法获取主系统")
+        
+        try:
+            self.TheSystem.New(False)  # False表示不显示向导
+            logger.info("已创建新文件")
+        except Exception as e:
+            logger.error(f"创建新文件失败: {str(e)}")
+            raise
+    
     def save_file(self, filepath: Optional[str] = None) -> None:
         """
         保存文件

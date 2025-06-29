@@ -68,7 +68,7 @@ class AutoOptimizer:
             # 分析 MTF
             print("\n分析 MTF...")
             try:
-                mtf_data = self.analyzer.analyze_mtf(field_index=1)
+                mtf_data = self.analyzer.analyze_mtf(field_index=0)
                 mtf_at_50 = self._interpolate_mtf_at_frequency(mtf_data['frequencies'], 
                                                              mtf_data['mtf_sagittal'], 50)
                 print(f"  50 cycles/mm 处的 MTF: {mtf_at_50:.3f}")
@@ -123,7 +123,7 @@ class AutoOptimizer:
             print(f"快速聚焦结果: {'成功' if focus_result['success'] else '失败'}")
             
             # 记录聚焦后的性能
-            post_focus_spot = self.analyzer.analyze_spot_diagram(field_index=1)
+            post_focus_spot = self.analyzer.analyze_spot_diagram(field_index=0)
             print(f"聚焦后 RMS 半径: {post_focus_spot['rms_radius']:.6f} mm")
             
             # 系统优化
@@ -167,7 +167,7 @@ class AutoOptimizer:
             # 重新分析 MTF
             print("\n分析优化后 MTF...")
             try:
-                final_mtf_data = self.analyzer.analyze_mtf(field_index=1)
+                final_mtf_data = self.analyzer.analyze_mtf(field_index=0)
                 final_mtf_at_50 = self._interpolate_mtf_at_frequency(final_mtf_data['frequencies'], 
                                                                    final_mtf_data['mtf_sagittal'], 50)
                 print(f"  50 cycles/mm 处的 MTF: {final_mtf_at_50:.3f}")

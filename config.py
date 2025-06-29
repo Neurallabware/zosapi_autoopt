@@ -19,6 +19,13 @@ DEFAULT_ZEMAX_PATHS = [
 # 输出目录
 OUTPUT_DIR = "zosapi_output"
 
+# 示例文件路径
+SAMPLE_FILES = {
+    "cooke_triplet": r"C:\Program Files\ANSYS Inc\v242\Zemax OpticStudio\Samples\Sequential\Objectives\Cooke 40 degree field.zos",
+    "double_gauss": r"C:\Program Files\ANSYS Inc\v242\Zemax OpticStudio\Samples\Sequential\Objectives\Double Gauss 28 degree field.zos",
+    "singlet": r"C:\Program Files\ANSYS Inc\v242\Zemax OpticStudio\Samples\Sequential\Objectives\Singlet.zos"
+}
+
 # === 分析配置 ===
 
 # 默认分析参数

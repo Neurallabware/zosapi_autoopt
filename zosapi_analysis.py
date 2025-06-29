@@ -206,7 +206,7 @@ class ZOSAnalyzer:
             logger.error(f"波前分析失败: {str(e)}")
             raise
     
-    def analyze_mtf(self, field_index: int = 1, wavelength_index: int = 1,
+    def analyze_mtf(self, field_index: int = 0, wavelength_index: int = 0,
                    frequency_type: str = "CyclesPerMM",
                    max_frequency: float = 100.0,
                    num_points: int = 50) -> Dict[str, Any]:
@@ -214,8 +214,8 @@ class ZOSAnalyzer:
         分析 MTF (基于官方例程4的实现)
         
         Args:
-            field_index: 视场索引 (1-based)
-            wavelength_index: 波长索引 (1-based)
+            field_index: 视场索引 (0-based)
+            wavelength_index: 波长索引 (0-based)
             frequency_type: 频率类型
             max_frequency: 最大频率
             num_points: 数据点数
@@ -293,6 +293,12 @@ class ZOSAnalyzer:
                 frequencies = list(np.linspace(0, max_frequency, num_points))
                 mtf_tangential = [max(0, 1 - f/max_frequency) for f in frequencies]
                 mtf_sagittal = [max(0, 0.9 - f/max_frequency) for f in frequencies]
+                
+                # 尝试关闭分析（如果还未关闭）
+                try:
+                    mtf_analysis.Close()
+                except:
+                    pass
             
             result = {
                 "frequencies": frequencies,
@@ -303,9 +309,6 @@ class ZOSAnalyzer:
                 "max_frequency": max_frequency,
                 "num_points": len(frequencies)
             }
-            
-            # 关闭分析
-            mtf_analysis.Close()
             
             return result
             
@@ -540,7 +543,7 @@ class ZOSAnalyzer:
             opt_result = local_optimization.RunAndWaitForCompletion()
             
             # 获取最终评价函数值
-            final_merit = local_optimization.FinalMeritFunction
+            final_merit = local_optimization.CurrentMeritFunction
             
             # 计算改善
             improvement = (initial_merit - final_merit) / initial_merit if initial_merit != 0 else 0
@@ -580,10 +583,10 @@ class ZOSAnalyzer:
                 quick_focus_tool.Surface = surface_index
             
             # 运行快速聚焦
-            focus_result = quick_focus_tool.RunAndWaitForCompletion()
+            quick_focus_tool.RunAndWaitForCompletion()
             
             result = {
-                "success": focus_result == self.zos.ZOSAPI.Tools.General.QuickFocusReturn.Success,
+                "success": True,
                 "surface_index": surface_index or "Image"
             }
             

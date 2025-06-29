@@ -22,6 +22,72 @@
 - **自动优化**: 集成系统优化和快速聚焦功能
 - **健壮设计**: 完善的错误处理和兼容性逻辑
 
+## 🚀 超级简化用法 - HIGH-LEVEL FUNCTIONS
+
+### ✨ 一行代码完成所有分析 (Ultimate One-Liner)
+```python
+from zosapi_core import ZOSAPIManager
+from zosapi_plotting import analyze_and_plot_system
+
+# 连接到Zemax
+zos_manager = ZOSAPIManager()
+
+# 加载系统 (或使用当前系统)
+# zos_manager.load_file("your_system.zmx")
+
+# 🎯 一行代码完成：MTF + 点列图 + 光线扇形图 + 综合分析！
+saved_files = analyze_and_plot_system(zos_manager, output_dir="./results")
+
+# 就这样！🎉 所有分析图表已生成
+```
+
+### 🎨 高级绘图函数 (4行搞定)
+```python
+from zosapi_analysis import ZOSAnalyzer
+from zosapi_plotting import plot_system_mtf, plot_multifield_spots, plot_multifield_rayfan, plot_comprehensive_analysis
+
+analyzer = ZOSAnalyzer(zos_manager)
+
+# 每个函数自动处理所有视场和波长
+plot_system_mtf(zos_manager, "mtf.png")                                      # MTF分析
+plot_multifield_spots(zos_manager, analyzer, "spots.png")                    # 点列图  
+plot_multifield_rayfan(zos_manager, analyzer, "rayfan.png")                 # 光线扇形图
+plot_comprehensive_analysis(zos_manager, analyzer, "comprehensive.png")      # 综合分析图
+```
+
+### 📊 代码复杂度对比
+
+**🔴 传统方式 (150+ 行):**
+```python
+# 手写matplotlib代码做MTF分析
+mtf_analysis = system.Analyses.New_FftMtf()
+# ... 30+ 行设置和绘图代码 ...
+
+# 手写matplotlib代码做点列图  
+fig, axes = plt.subplots(n_rows, n_cols, figsize=(...))
+# ... 50+ 行子图管理代码 ...
+
+# 手写matplotlib代码做光线扇形图
+# ... 另外50+ 行 ...
+
+# 手写综合分析图
+# ... 再50+ 行 ...
+```
+
+**🟢 新方式 (1-4 行):**
+```python
+# 一行搞定全部！
+analyze_and_plot_system(zos_manager, "./results")
+
+# 或者分别调用
+plot_system_mtf(zos_manager, "mtf.png")
+plot_multifield_spots(zos_manager, analyzer, "spots.png") 
+plot_multifield_rayfan(zos_manager, analyzer, "rayfan.png")
+plot_comprehensive_analysis(zos_manager, analyzer, "comprehensive.png")
+```
+
+**结果: 95% 代码减少！🎯 现在可以专注于光学设计而不是绘图代码！**
+
 ## 📁 模块结构
 
 ```
@@ -62,11 +128,11 @@ if zos_manager.connect():
     analyzer = ZOSAnalyzer(zos_manager)
     
     # 分析点列图 (基于官方例程22)
-    spot_data = analyzer.analyze_spot_diagram(field_index=1, wavelength_index=1)
+    spot_data = analyzer.analyze_spot_diagram(field_index=0, wavelength_index=0)
     print(f"RMS Radius: {spot_data['rms_radius']:.6f} mm")
     
     # 分析MTF (基于官方例程4)
-    mtf_data = analyzer.analyze_mtf(field_index=1, max_frequency=50)
+    mtf_data = analyzer.analyze_mtf(field_index=0, max_frequency=50)
     print(f"MTF at Nyquist: {mtf_data['mtf_tangential'][-1]:.3f}")
     
     # 绘制专业图表 (全英文标签)

@@ -17,7 +17,7 @@ sys.path.insert(0, str(current_dir))
 from zosapi_core import ZOSAPIManager
 from zosapi_analysis import ZOSAnalyzer
 from zosapi_plotting import ZOSPlotter
-from auto_optimizer import ZOSAutoOptimizer
+from auto_optimizer import AutoOptimizer
 import config
 
 # 设置日志
@@ -36,8 +36,8 @@ def create_single_lens_system(zos_manager: ZOSAPIManager):
         # 获取光学系统
         system = zos_manager.TheSystem
         
-        # 设置系统单位为毫米
-        system.SystemData.Units = zos_manager.ZOSAPI.SystemData.ZemaxUnits.Millimeters
+        # 设置系统单位为毫米 (0=millimeters; 1=centimeters; 2=inches; 3=meters)
+        # system.SystemData.Units = 0  # Not needed as default is millimeters
         
         # 设置孔径类型为入瞳直径
         system.SystemData.Aperture.ApertureType = zos_manager.ZOSAPI.SystemData.ZemaxApertureType.EntrancePupilDiameter
@@ -139,11 +139,11 @@ def test_single_lens_optimization():
             print("⚠️ Quick focus failed, continuing...")
         
         # 分析初始点列图
-        initial_spot = analyzer.analyze_spot_diagram(field_index=1, wavelength_index=1)
+        initial_spot = analyzer.analyze_spot_diagram(field_index=0, wavelength_index=0)
         print(f"   Initial RMS spot size: {initial_spot['rms_radius']:.6f} mm")
         
         # 分析初始MTF
-        initial_mtf = analyzer.analyze_mtf(field_index=1, wavelength_index=1, max_frequency=50)
+        initial_mtf = analyzer.analyze_mtf(field_index=0, wavelength_index=0, max_frequency=50)
         print(f"   Initial MTF at Nyquist: {initial_mtf['mtf_tangential'][-1]:.3f}")
         
         # === 2. 运行优化 ===
@@ -163,11 +163,11 @@ def test_single_lens_optimization():
         print("\n📈 Analyzing optimized performance...")
         
         # 分析优化后点列图
-        final_spot = analyzer.analyze_spot_diagram(field_index=1, wavelength_index=1)
+        final_spot = analyzer.analyze_spot_diagram(field_index=0, wavelength_index=0)
         print(f"   Final RMS spot size: {final_spot['rms_radius']:.6f} mm")
         
         # 分析优化后MTF
-        final_mtf = analyzer.analyze_mtf(field_index=1, wavelength_index=1, max_frequency=50)
+        final_mtf = analyzer.analyze_mtf(field_index=0, wavelength_index=0, max_frequency=50)
         print(f"   Final MTF at Nyquist: {final_mtf['mtf_tangential'][-1]:.3f}")
         
         # 计算改善
@@ -304,28 +304,28 @@ def test_analysis_functions():
         
         # 1. 测试点列图分析
         try:
-            spot_data = analyzer.analyze_spot_diagram(field_index=1, wavelength_index=1)
+            spot_data = analyzer.analyze_spot_diagram(field_index=0, wavelength_index=0)
             print(f"✅ Spot diagram analysis: RMS={spot_data['rms_radius']:.6f} mm")
         except Exception as e:
             print(f"❌ Spot diagram analysis failed: {str(e)}")
         
         # 2. 测试MTF分析
         try:
-            mtf_data = analyzer.analyze_mtf(field_index=1, wavelength_index=1, max_frequency=50)
+            mtf_data = analyzer.analyze_mtf(field_index=0, wavelength_index=0, max_frequency=50)
             print(f"✅ MTF analysis: {len(mtf_data['frequencies'])} data points")
         except Exception as e:
             print(f"❌ MTF analysis failed: {str(e)}")
         
         # 3. 测试光线扇形图分析
         try:
-            ray_fan_data = analyzer.analyze_ray_fan(field_index=1, wavelength_index=1, fan_type="Y")
+            ray_fan_data = analyzer.analyze_ray_fan(field_index=0, wavelength_index=0, fan_type="Y")
             print(f"✅ Ray fan analysis: {len(ray_fan_data['pupil_coords'])} rays")
         except Exception as e:
             print(f"❌ Ray fan analysis failed: {str(e)}")
         
         # 4. 测试波前分析
         try:
-            wf_data = analyzer.analyze_wavefront(field_index=1, wavelength_index=1)
+            wf_data = analyzer.analyze_wavefront(field_index=0, wavelength_index=0)
             print(f"✅ Wavefront analysis: RMS WFE={wf_data['rms_wfe']:.6f} waves")
         except Exception as e:
             print(f"❌ Wavefront analysis failed: {str(e)}")

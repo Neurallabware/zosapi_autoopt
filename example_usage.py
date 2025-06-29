@@ -42,13 +42,13 @@ def example_basic_analysis():
             
             # 分析点列图
             print("\n正在分析点列图...")
-            spot_data = analyzer.analyze_spot_diagram(field_index=1)
+            spot_data = analyzer.analyze_spot_diagram(field_index=0)
             print(f"RMS 半径: {spot_data['rms_radius']:.6f} mm")
             print(f"光线数量: {spot_data['ray_count']}")
             
             # 分析 MTF
             print("\n正在分析 MTF...")
-            mtf_data = analyzer.analyze_mtf(field_index=1)
+            mtf_data = analyzer.analyze_mtf(field_index=0)
             print(f"频率点数: {len(mtf_data['frequencies'])}")
             print(f"最大频率: {max(mtf_data['frequencies']):.2f} cycles/mm")
             
@@ -77,7 +77,7 @@ def example_plotting():
             
             # 分析和绘制点列图
             print("正在分析和绘制点列图...")
-            spot_data = analyzer.analyze_spot_diagram(field_index=1)
+            spot_data = analyzer.analyze_spot_diagram(field_index=0)
             spot_fig = plotter.plot_spot_diagram(
                 spot_data['x_coords'], 
                 spot_data['y_coords'],
@@ -87,7 +87,7 @@ def example_plotting():
             
             # 分析和绘制 MTF
             print("正在分析和绘制 MTF...")
-            mtf_data = analyzer.analyze_mtf(field_index=1)
+            mtf_data = analyzer.analyze_mtf(field_index=0)
             mtf_fig = plotter.plot_mtf_curve(
                 mtf_data['frequencies'],
                 mtf_data['mtf_sagittal'],
@@ -99,7 +99,7 @@ def example_plotting():
             # 分析和绘制波前
             print("正在分析和绘制波前...")
             try:
-                wf_data = analyzer.analyze_wavefront(field_index=1, sampling=64)
+                wf_data = analyzer.analyze_wavefront(field_index=0, sampling=64)
                 wf_fig = plotter.plot_wavefront(
                     wf_data['wavefront'],
                     wf_data['x_coords'],
@@ -279,7 +279,7 @@ def example_custom_analysis():
             print("多波长 MTF 比较...")
             try:
                 batch_analyzer = BatchAnalyzer(zos)
-                all_mtf = batch_analyzer.analyze_all_wavelengths_mtf(field_index=1)
+                all_mtf = batch_analyzer.analyze_all_wavelengths_mtf(field_index=0)
                 
                 # 准备数据
                 frequencies = all_mtf[0]['frequencies']
