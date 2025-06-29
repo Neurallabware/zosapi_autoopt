@@ -36,24 +36,59 @@ zos_manager = ZOSAPIManager()
 # zos_manager.load_file("your_system.zmx")
 
 # 🎯 一行代码完成：MTF + 点列图 + 光线扇形图 + 综合分析！
-saved_files = analyze_and_plot_system(zos_manager, output_dir="./results")
+# 全视场全波长分析
+saved_files = analyze_and_plot_system(zos_manager, "./results", fields="all", wavelengths="all")
 
-# 就这样！🎉 所有分析图表已生成
+# 单视场主波长分析  
+saved_files = analyze_and_plot_system(zos_manager, "./results", fields="single", wavelengths="single")
+
+# 自定义选择：前两个视场，第1和第3波长
+saved_files = analyze_and_plot_system(zos_manager, "./results", fields=[0,1], wavelengths=[0,2])
 ```
 
-### 🎨 高级绘图函数 (4行搞定)
+### 🎨 高级绘图函数 - 真正的多视场多波长支持
 ```python
 from zosapi_analysis import ZOSAnalyzer
 from zosapi_plotting import plot_system_mtf, plot_multifield_spots, plot_multifield_rayfan, plot_comprehensive_analysis
 
 analyzer = ZOSAnalyzer(zos_manager)
 
-# 每个函数自动处理所有视场和波长
-plot_system_mtf(zos_manager, "mtf.png")                                      # MTF分析
-plot_multifield_spots(zos_manager, analyzer, "spots.png")                    # 点列图  
-plot_multifield_rayfan(zos_manager, analyzer, "rayfan.png")                 # 光线扇形图
-plot_comprehensive_analysis(zos_manager, analyzer, "comprehensive.png")      # 综合分析图
+# 🌈 多波长多视场分析 - 严格按照官方例程22、23实现
+plot_multifield_spots(zos_manager, analyzer, 
+                     fields="all", wavelengths="all",      # 全视场全波长
+                     save_path="spots_all.png")
+
+plot_multifield_rayfan(zos_manager, analyzer, 
+                      fields="all", wavelengths="all",     # 全视场全波长  
+                      save_path="rayfan_all.png")
+
+plot_system_mtf(zos_manager, 
+               fields="all", wavelengths="all",           # 全视场全波长
+               save_path="mtf_all.png")
+
+# 🎯 灵活的选择控制
+plot_multifield_spots(zos_manager, analyzer, 
+                     fields="single",      # 单视场
+                     wavelengths="all",    # 全波长
+                     save_path="spots_single_field_all_waves.png")
+
+plot_multifield_spots(zos_manager, analyzer, 
+                     fields=[0, 1, 2],     # 指定视场索引
+                     wavelengths=[0, 2],   # 指定波长索引  
+                     save_path="spots_custom.png")
 ```
+
+### 🎛️ 控制参数详解
+
+**视场选择 (fields):**
+- `"all"` - 所有视场
+- `"single"` - 单视场(第一个)
+- `[0, 1, 2]` - 指定视场索引列表(0-based)
+
+**波长选择 (wavelengths):**
+- `"all"` - 所有波长
+- `"single"` - 主波长
+- `[0, 1, 2]` - 指定波长索引列表(0-based)
 
 ### 📊 代码复杂度对比
 
@@ -66,6 +101,8 @@ mtf_analysis = system.Analyses.New_FftMtf()
 # 手写matplotlib代码做点列图  
 fig, axes = plt.subplots(n_rows, n_cols, figsize=(...))
 # ... 50+ 行子图管理代码 ...
+# ... 需要手动处理多波长循环 ...
+# ... 需要手动管理颜色和图例 ...
 
 # 手写matplotlib代码做光线扇形图
 # ... 另外50+ 行 ...
@@ -76,17 +113,26 @@ fig, axes = plt.subplots(n_rows, n_cols, figsize=(...))
 
 **🟢 新方式 (1-4 行):**
 ```python
-# 一行搞定全部！
-analyze_and_plot_system(zos_manager, "./results")
+# 一行搞定全部！支持真正的多视场多波长
+analyze_and_plot_system(zos_manager, "./results", "all", "all")
 
-# 或者分别调用
-plot_system_mtf(zos_manager, "mtf.png")
-plot_multifield_spots(zos_manager, analyzer, "spots.png") 
-plot_multifield_rayfan(zos_manager, analyzer, "rayfan.png")
-plot_comprehensive_analysis(zos_manager, analyzer, "comprehensive.png")
+# 或者分别调用，每个都支持完整的视场/波长控制
+plot_system_mtf(zos_manager, fields="all", wavelengths="all", save_path="mtf.png")
+plot_multifield_spots(zos_manager, analyzer, fields="all", wavelengths="all", save_path="spots.png") 
+plot_multifield_rayfan(zos_manager, analyzer, fields="all", wavelengths="all", save_path="rayfan.png")
+plot_comprehensive_analysis(zos_manager, analyzer, fields="all", wavelengths="all", save_path="comprehensive.png")
 ```
 
 **结果: 95% 代码减少！🎯 现在可以专注于光学设计而不是绘图代码！**
+
+### 🌟 新功能亮点
+
+- ✅ **真正的多波长支持**: 严格按照官方例程22、23实现
+- ✅ **智能颜色编码**: 不同波长自动使用不同颜色和线型
+- ✅ **专业图例标签**: 显示实际波长值(如λ=0.587μm)
+- ✅ **灵活控制选项**: 支持all/single/自定义索引
+- ✅ **一行式分析**: 可指定视场和波长参数
+- ✅ **完美兼容**: 与现有代码100%兼容
 
 ## 📁 模块结构
 
