@@ -32,24 +32,24 @@ SAMPLE_FILES = {
 DEFAULT_ANALYSIS_SETTINGS = {
     "spot_diagram": {
         "ray_density": 3,
-        "field_index": 1,
-        "wavelength_index": 1
+        "field_index": 0,
+        "wavelength_index": 0
     },
     "wavefront": {
         "sampling": 32,
-        "field_index": 1,
-        "wavelength_index": 1
+        "field_index": 0,
+        "wavelength_index": 0
     },
     "mtf": {
         "max_frequency": 100.0,
         "num_points": 50,
-        "field_index": 1,
-        "wavelength_index": 1
+        "field_index": 0,
+        "wavelength_index": 0
     },
     "ray_fan": {
         "fan_type": "Y",
-        "field_index": 1,
-        "wavelength_index": 1
+        "field_index": 0,
+        "wavelength_index": 0
     }
 }
 
@@ -81,8 +81,8 @@ PLOT_SETTINGS = {
 # === 日志配置 ===
 
 LOG_SETTINGS = {
-    "level": "INFO",
-    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    "level": "WARNING",  # 改为WARNING级别，减少信息输出
+    "format": "%(levelname)s:%(name)s:%(message)s",  # 简化格式
     "file": "zosapi.log"
 }
 

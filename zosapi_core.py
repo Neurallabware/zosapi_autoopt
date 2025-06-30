@@ -10,9 +10,11 @@ import os
 import winreg
 from typing import Optional, Union
 import logging
+from config import LOG_SETTINGS
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
+# 配置日志 - 使用配置文件中的设置
+log_level = getattr(logging, LOG_SETTINGS.get("level", "WARNING").upper())
+logging.basicConfig(level=log_level, format=LOG_SETTINGS.get("format", "%(levelname)s:%(name)s:%(message)s"))
 logger = logging.getLogger(__name__)
 
 

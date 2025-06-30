@@ -60,18 +60,31 @@ def plot_multifield_spots(zos_manager, analyzer,
     num_selected_fields = len(field_indices)
     num_selected_waves = len(wave_indices)
     
-    # Calculate subplot layout - use reference method for consistent sizing
-    cols = 5
-    rows = (num_selected_fields + cols - 1) // cols
-    fig = plt.figure(figsize=(4 * cols, 4 * rows))
+    # Calculate subplot layout - default 3 columns, calculate rows based on field count
+    cols = 3
+    rows = (num_selected_fields + cols - 1) // cols  # Ceiling division
+    
+    # Create subplots with constrained layout for consistent sizing
+    fig, axes = plt.subplots(rows, cols, figsize=(15, 5 * rows), 
+                            constrained_layout=True)
+    
+    # Ensure axes is always 2D array for consistent indexing
+    if rows == 1 and cols == 1:
+        axes = np.array([[axes]])
+    elif rows == 1:
+        axes = axes.reshape(1, -1)
+    elif cols == 1:
+        axes = axes.reshape(-1, 1)
     
     # Colors for different wavelengths
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
     
     # Plot for each selected field
     for plot_idx, field_idx in enumerate(field_indices):
-        plt_idx = plot_idx + 1  # Subplot indices start from 1
-        ax = plt.subplot(rows, cols, plt_idx, aspect='equal')
+        row = plot_idx // cols
+        col = plot_idx % cols
+        ax = axes[row, col]
+        # Don't set aspect='equal' here as it causes size inconsistencies
         
         # Get field information
         field = system.SystemData.Fields.GetField(field_idx + 1)  # Zemax uses 1-based indexing
@@ -100,13 +113,19 @@ def plot_multifield_spots(zos_manager, analyzer,
         ax.set_title(f'Field {field_idx+1}: Y={field_y:.2f}')
         ax.set_xlabel('X (mm)')
         ax.set_ylabel('Y (mm)')
-        ax.set_aspect('equal')
+        # Use aspect='equal' with adjustable='datalim' to maintain true shape
+        # while keeping consistent subplot sizes
+        ax.set_aspect('equal', adjustable='datalim')
         ax.grid(True, alpha=0.3)
         
         if num_selected_waves > 1:
             ax.legend()
     
-    # No need to hide extra subplots with this method
+    # Hide unused subplots
+    for plot_idx in range(num_selected_fields, rows * cols):
+        row = plot_idx // cols
+        col = plot_idx % cols
+        axes[row, col].set_visible(False)
     
     # Create title based on selections
     title_parts = []
@@ -125,7 +144,6 @@ def plot_multifield_spots(zos_manager, analyzer,
         title_parts.append(f"Wavelengths {wave_indices}")
     
     plt.suptitle(f'Spot Diagrams - {" & ".join(title_parts)}', fontsize=14)
-    plt.tight_layout()
     
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
@@ -475,7 +493,8 @@ def plot_comprehensive_analysis(zos_manager, analyzer,
         ax.set_title(f'Spot F{field_idx+1}: Y={field.Y:.2f}')
         ax.set_xlabel('X (mm)')
         ax.set_ylabel('Y (mm)')
-        ax.set_aspect('equal')
+        # ax.set_aspect('equal')
+        ax.set_aspect('equal', adjustable='datalim')
         ax.grid(True, alpha=0.3)
         
         if len(wave_indices) > 1:
