@@ -449,23 +449,18 @@ class ZOSAnalyzer:
             analyses = self.zos.TheSystem.Analyses
             fan_analysis = analyses.New_Analysis(self.zos.ZOSAPI.Analysis.AnalysisIDM.RayFan)
             
-            # 设置参数 - 参考例程23
+            # 设置参数 - 完全按照官方例程23的方式
             settings = fan_analysis.GetSettings()
-            settings.NumberOfRays = int(num_rays / 2)  # 例程23中使用max_rays/2
+            settings.NumberOfRays = int(num_rays / 2)
             
-            # 设置视场和波长 - 使用官方API方法（例程23中的精确实现）
+            # 设置视场和波长 - 使用官方API方法
             settings.Field.SetFieldNumber(zemax_field_idx)
             settings.Wavelength.SetWavelengthNumber(zemax_wave_idx)
             
-            # 设置扇形类型（如果API支持）
-            try:
-                if fan_type.upper() == "X":
-                    settings.Type = self.zos.ZOSAPI.Analysis.RayFan.RayFanTypes.X
-                else:
-                    settings.Type = self.zos.ZOSAPI.Analysis.RayFan.RayFanTypes.Y
-            except:
-                # 如果不支持设置类型，使用默认值
-                pass
+            # 使用默认设置（官方示例23不设置Sagittal和Tangential）
+            # 这样会得到两个数据序列，分别对应两个方向
+            
+            logger.info(f"Ray Fan analysis: Field {zemax_field_idx}, Wavelength {zemax_wave_idx}, Fan type {fan_type}")
             
             # 运行分析
             fan_analysis.ApplyAndWaitForCompletion()
@@ -477,43 +472,81 @@ class ZOSAnalyzer:
             ray_errors = []
             
             try:
-                # 按照例程23的方法提取数据
-                # 例程23中使用了特定的数据提取方法
-                if hasattr(results, 'GetDataSeries'):
-                    # 尝试获取数据序列
-                    data_series = results.GetDataSeries(0)  # 获取第一个数据序列
+                # 按照例程23的精确方法提取数据
+                if hasattr(results, 'GetDataSeries') and results.NumberOfDataSeries >= 2:
                     
-                    # 获取X数据（瞳孔坐标）
-                    x_data = data_series.XData.Data
-                    pupil_coords = list(x_data)
-                    
-                    # 获取Y数据（光线误差）
-                    y_data = data_series.YData.Data
-                    if hasattr(y_data, 'GetLength') and y_data.GetLength(1) > 0:
-                        # 多维数据，提取第一列
-                        ray_errors = []
-                        for i in range(y_data.GetLength(0)):
-                            ray_errors.append(y_data[i, 0])
+                    # 根据fan_type选择正确的数据序列
+                    # 基于测试结果：Series 0通常是Y方向，Series 1通常是X方向
+                    if fan_type.upper() == "X":
+                        series_idx = 1  # X Fan使用Series 1
                     else:
-                        # 一维数据
-                        ray_errors = list(y_data)
+                        series_idx = 0  # Y Fan使用Series 0
+                    
+                    data_series = results.GetDataSeries(series_idx)
+                    
+                    # 完全按照官方示例的方法
+                    x_raw = np.asarray(tuple(data_series.XData.Data))
+                    y_raw = np.asarray(tuple(data_series.YData.Data))
+                    
+                    x = x_raw
+                    y = y_raw.reshape(data_series.YData.Data.GetLength(0), data_series.YData.Data.GetLength(1))
+                    
+                    logger.info(f"Ray Fan data: x shape={x.shape}, y shape={y.shape}")
+                    logger.info(f"Using series {series_idx} for {fan_type} fan")
+                    logger.info(f"Y data range: {np.nanmin(y):.6f} to {np.nanmax(y):.6f}")
+                    
+                    # 现在提取第一列有效数据
+                    pupil_coords = list(x)
+                    
+                    # 找到第一列有效（非NaN）数据
+                    valid_col = None
+                    for col in range(y.shape[1]):
+                        col_data = y[:, col]
+                        if not np.all(np.isnan(col_data)):
+                            valid_col = col
+                            break
+                    
+                    if valid_col is not None:
+                        ray_errors = list(y[:, valid_col])
+                        # 将NaN值替换为0
+                        ray_errors = [0.0 if np.isnan(x) else x for x in ray_errors]
+                    else:
+                        # 如果没有找到有效列，使用指定波长的列并处理NaN
+                        wave_col = min(wavelength_index, y.shape[1] - 1)
+                        ray_errors = list(y[:, wave_col])
+                        ray_errors = [0.0 if np.isnan(x) else x for x in ray_errors]
+                    
+                    logger.info(f"{fan_type} Fan data range: {min(ray_errors):.6f} to {max(ray_errors):.6f}")
+                    
+                    # 检查数据是否为零
+                    if all(abs(val) < 1e-10 for val in ray_errors):
+                        logger.warning(f"{fan_type} Fan data appears to be all zeros for field {zemax_field_idx}")
+                    else:
+                        logger.info(f"Successfully extracted non-zero {fan_type} fan data")
+                    
+                    logger.info(f"Extracted {fan_type} fan: {len(pupil_coords)} pupil coords, {len(ray_errors)} ray errors")
                 
-                elif hasattr(results, 'Data'):
-                    # 备用方法：直接从结果数据提取
-                    data = results.Data
-                    if data is not None:
-                        # 尝试从真实数据中提取，不创建仿真数据
-                        logger.warning("Cannot extract detailed ray fan data from results.Data")
+                else:
+                    logger.error(f"Insufficient data series: {results.NumberOfDataSeries if hasattr(results, 'NumberOfDataSeries') else 0} (need at least 2)")
+                    pupil_coords = []
+                    ray_errors = []
                 
-                # 如果无法获取真实数据，报告失败而不是创建仿真数据
-                if not pupil_coords:
+                # 验证数据
+                if not pupil_coords or not ray_errors:
                     logger.error("Failed to extract real ray fan data from Zemax analysis")
                     pupil_coords = []
                     ray_errors = []
+                elif len(pupil_coords) != len(ray_errors):
+                    logger.error(f"Mismatched data lengths: {len(pupil_coords)} coords vs {len(ray_errors)} errors")
+                    pupil_coords = []
+                    ray_errors = []
+                else:
+                    logger.info(f"Successfully extracted {len(pupil_coords)} ray fan data points for {fan_type} fan")
                     
             except Exception as e:
                 logger.error(f"获取光线扇形图数据失败: {str(e)}")
-                # 不创建仿真数据，返回空结果
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 pupil_coords = []
                 ray_errors = []
             
@@ -535,263 +568,457 @@ class ZOSAnalyzer:
             logger.error(f"光线扇形图分析失败: {str(e)}")
             raise
     
-    def analyze_field_curvature_distortion(self) -> Dict[str, Any]:
+    def analyze_field_curvature_distortion(self, num_points: int = 50, wavelength_index: int = 0) -> Dict[str, Any]:
         """
         分析场曲和畸变
         
+        Args:
+            num_points: 分析点数
+            wavelength_index: 波长索引 (0-based for internal use)
+            
         Returns:
             场曲和畸变分析结果
         """
         try:
-            # 获取分析器
+            # Convert to 1-based for Zemax API
+            zemax_wave_idx = wavelength_index + 1
+            
+            # 创建场曲和畸变分析
             analyses = self.zos.TheSystem.Analyses
-            fc_analysis = analyses.New_Analysis(self.zos.ZOSAPI.Analysis.AnalysisIDM.FieldCurvatureAndDistortion)
+            distortion_analysis = analyses.New_Analysis(self.zos.ZOSAPI.Analysis.AnalysisIDM.FieldCurvatureAndDistortion)
             
-            fc_analysis.ApplyAndWaitForCompletion()
+            # 设置参数
+            settings = distortion_analysis.GetSettings()
+            try:
+                settings.NumberOfPoints = num_points
+                # 设置波长
+                if hasattr(settings, 'Wavelength'):
+                    settings.Wavelength.SetWavelengthNumber(zemax_wave_idx)
+                    wavelength = self.zos.TheSystem.SystemData.Wavelengths.GetWavelength(zemax_wave_idx)
+                    wavelength_value = wavelength.Wavelength
+                    logger.info(f"Field curvature and distortion analysis with {num_points} points, wavelength {zemax_wave_idx} ({wavelength_value:.3f}nm)")
+                else:
+                    logger.info(f"Field curvature and distortion analysis with {num_points} points (wavelength setting not available)")
+            except Exception as e:
+                logger.warning(f"Cannot set analysis parameters: {e}, using default settings")
+                logger.info(f"Field curvature and distortion analysis (using default settings)")
             
-            # 获取结果
-            results = fc_analysis.GetResults()
+            # 运行分析
+            distortion_analysis.ApplyAndWaitForCompletion()
+            results = distortion_analysis.GetResults()
             
-            # 提取数据
-            field_positions = extract_zos_vector(results.GetXData())
-            sagittal_focus = extract_zos_vector(results.GetYData(0))
-            tangential_focus = extract_zos_vector(results.GetYData(1))
-            distortion = extract_zos_vector(results.GetYData(2))
+            field_heights = []
+            tangential_field_curvature = []
+            sagittal_field_curvature = []
+            distortion_percent = []
+            
+            try:
+                # 检查数据结构
+                if hasattr(results, 'NumberOfDataSeries') and results.NumberOfDataSeries > 0:
+                    logger.info(f"Found {results.NumberOfDataSeries} data series")
+                    
+                    # Field Curvature and Distortion 分析通常有多个序列，对应不同的波长
+                    # 每个序列的Y数据包含5列：[子午场曲, 弧矢场曲, ?, ?, 畸变%]
+                    
+                    # 找到有效的数据系列
+                    for series_idx in range(results.NumberOfDataSeries):
+                        try:
+                            data_series = results.GetDataSeries(series_idx)
+                            
+                            # 获取X数据（视场高度）
+                            x_raw = data_series.XData.Data
+                            x = np.asarray(tuple(x_raw))
+                            
+                            # 获取Y数据（场曲和畸变）
+                            y_raw = data_series.YData.Data
+                            y_raw_list = list(y_raw)
+                            
+                            # 检查Y数据维度
+                            y = None
+                            try:
+                                y_dim0 = y_raw.GetLength(0)
+                                y_dim1 = y_raw.GetLength(1)
+                                y = np.array(y_raw_list).reshape(y_dim0, y_dim1)
+                                logger.info(f"Series {series_idx}: x shape={x.shape}, y shape={y.shape}")
+                            except Exception as y_err:
+                                logger.warning(f"Cannot reshape Y data: {y_err}")
+                                continue
+                            
+                            logger.info(f"Series {series_idx}: X data range: {x.min():.6f} to {x.max():.6f}")
+                            
+                            # 检查X数据是否有效
+                            x_range_valid = abs(x.max() - x.min()) > 1e-6
+                            
+                            # 检查Y数据形状是否有效（至少有5列）
+                            if y is not None and len(y.shape) > 1 and y.shape[1] >= 5:
+                                # 处理X数据全为0的情况
+                                if not x_range_valid:
+                                    # 尝试使用Y数据的第2列作为视场高度
+                                    logger.info("X data range invalid, using Y column 2 for field heights")
+                                    field_height_col = 2  # 第2列，索引从0开始
+                                    
+                                    if field_height_col < y.shape[1]:
+                                        x = y[:, field_height_col]
+                                        x_range_valid = abs(x.max() - x.min()) > 1e-6
+                                        logger.info(f"Using Y column {field_height_col} as field heights: {x.min():.6f} to {x.max():.6f}")
+                                
+                                # 如果X数据有效（原始有效或使用Y列构造的有效）
+                                if x_range_valid:
+                                    # 设置视场高度
+                                    field_heights = list(x)
+                                    
+                                    # 提取场曲数据
+                                    tangential_fc_raw = y[:, 0]
+                                    sagittal_fc_raw = y[:, 1]
+                                    tangential_field_curvature = list(tangential_fc_raw)
+                                    sagittal_field_curvature = list(sagittal_fc_raw)
+                                    
+                                    logger.info(f"Tangential FC range: {min(tangential_field_curvature):.6f} to {max(tangential_field_curvature):.6f}")
+                                    logger.info(f"Sagittal FC range: {min(sagittal_field_curvature):.6f} to {max(sagittal_field_curvature):.6f}")
+                                    
+                                    # 提取畸变数据
+                                    distortion_raw = y[:, 4]
+                                    distortion_percent = list(distortion_raw)
+                                    logger.info(f"Distortion range: {min(distortion_percent):.6f} to {max(distortion_percent):.6f}%")
+                                    
+                                    # 找到有效数据后退出循环
+                                    break
+                                else:
+                                    logger.warning(f"Series {series_idx}: No valid X range found after correction")
+                            else:
+                                logger.warning(f"Series {series_idx}: Y data shape invalid or insufficient columns")
+                                
+                        except Exception as e:
+                            logger.warning(f"Error processing series {series_idx}: {e}")
+                            continue
+                
+                # 检查是否提取到数据
+                if not field_heights:
+                    logger.warning("No field curvature/distortion data extracted")
+                else:
+                    logger.info(f"Final extracted data: {len(field_heights)} field points")
+                    if tangential_field_curvature:
+                        logger.info(f"Tangential FC: {len(tangential_field_curvature)} points, range: {min(tangential_field_curvature):.6f} to {max(tangential_field_curvature):.6f}")
+                    if sagittal_field_curvature:
+                        logger.info(f"Sagittal FC: {len(sagittal_field_curvature)} points, range: {min(sagittal_field_curvature):.6f} to {max(sagittal_field_curvature):.6f}")
+                    if distortion_percent:
+                        logger.info(f"Distortion: {len(distortion_percent)} points, range: {min(distortion_percent):.6f}% to {max(distortion_percent):.6f}%")
+                    else:
+                        logger.warning("No distortion data available")
+                
+            except Exception as e:
+                logger.error(f"提取场曲畸变数据失败: {str(e)}")
+                import traceback
+                logger.error(f"详细错误: {traceback.format_exc()}")
+                field_heights = []
+                tangential_field_curvature = []
+                sagittal_field_curvature = []
+                distortion_percent = []
             
             result = {
-                "field_positions": field_positions,
-                "sagittal_focus": sagittal_focus,
-                "tangential_focus": tangential_focus,
-                "distortion": distortion
+                "field_heights": field_heights,
+                "tangential_field_curvature": tangential_field_curvature,
+                "sagittal_field_curvature": sagittal_field_curvature,
+                "distortion_percent": distortion_percent,
+                "num_points": len(field_heights),
+                "wavelength_index": wavelength_index
             }
             
-            # 关闭分析
-            fc_analysis.Close()
+            # 添加波长值信息
+            try:
+                wavelength = self.zos.TheSystem.SystemData.Wavelengths.GetWavelength(zemax_wave_idx)
+                result["wavelength_value"] = wavelength.Wavelength
+            except Exception as e:
+                logger.warning(f"Unable to get wavelength value: {e}")
+                result["wavelength_value"] = 0
             
+            distortion_analysis.Close()
             return result
             
         except Exception as e:
-            logger.error(f"场曲和畸变分析失败: {str(e)}")
+            logger.error(f"场曲畸变分析失败: {str(e)}")
             raise
     
-    def analyze_system_performance(self) -> Dict[str, Any]:
-        """
-        分析系统整体性能
-        
-        Returns:
-            系统性能分析结果
-        """
-        try:
-            # 收集多个分析结果
-            performance = {}
-            
-            # 获取系统基本信息
-            performance["system_info"] = self.zos.get_system_info()
-            
-            # 分析主要视场的点列图
-            try:
-                spot_results = []
-                num_fields = self.zos.TheSystem.SystemData.Fields.NumberOfFields
-                for field_idx in range(1, min(num_fields + 1, 4)):  # 最多分析3个视场
-                    spot_data = self.analyze_spot_diagram(field_index=field_idx)
-                    spot_results.append(spot_data)
-                performance["spot_diagrams"] = spot_results
-            except Exception as e:
-                logger.warning(f"点列图分析失败: {str(e)}")
-            
-            # 分析 MTF
-            try:
-                mtf_data = self.analyze_mtf()
-                performance["mtf"] = mtf_data
-            except Exception as e:
-                logger.warning(f"MTF 分析失败: {str(e)}")
-            
-            # 分析场曲和畸变
-            try:
-                fc_data = self.analyze_field_curvature_distortion()
-                performance["field_curvature_distortion"] = fc_data
-            except Exception as e:
-                logger.warning(f"场曲和畸变分析失败: {str(e)}")
-            
-            # 分析波前
-            try:
-                wf_data = self.analyze_wavefront()
-                performance["wavefront"] = wf_data
-            except Exception as e:
-                logger.warning(f"波前分析失败: {str(e)}")
-            
-            return performance
-            
-        except Exception as e:
-            logger.error(f"系统性能分析失败: {str(e)}")
-            raise
-    
-    def optimize_system(self, merit_function_type: str = "RMS",
-                       max_iterations: int = 100,
-                       target_improvement: float = 1e-6) -> Dict[str, Any]:
-        """
-        优化光学系统
-        
-        Args:
-            merit_function_type: 评价函数类型
-            max_iterations: 最大迭代次数
-            target_improvement: 目标改善值
-            
-        Returns:
-            优化结果
-        """
-        try:
-            # 获取优化器
-            local_optimization = self.zos.TheSystem.Tools.OpenLocalOptimization()
-            
-            # 设置优化参数
-            local_optimization.Algorithm = self.zos.ZOSAPI.Tools.Optimization.OptimizationAlgorithm.DampedLeastSquares
-            local_optimization.Cycles = self.zos.ZOSAPI.Tools.Optimization.OptimizationCycles.Automatic
-            local_optimization.NumberOfCycles = max_iterations
-            
-            # 获取初始评价函数值
-            initial_merit = local_optimization.InitialMeritFunction
-            
-            # 运行优化
-            opt_result = local_optimization.RunAndWaitForCompletion()
-            
-            # 获取最终评价函数值
-            final_merit = local_optimization.CurrentMeritFunction
-            
-            # 计算改善
-            improvement = (initial_merit - final_merit) / initial_merit if initial_merit != 0 else 0
-            
-            result = {
-                "success": opt_result == self.zos.ZOSAPI.Tools.Optimization.OptimizationReturn.Success,
-                "initial_merit": initial_merit,
-                "final_merit": final_merit,
-                "improvement": improvement,
-                "iterations": local_optimization.NumberOfCycles
-            }
-            
-            # 关闭优化器
-            local_optimization.Close()
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"系统优化失败: {str(e)}")
-            raise
-    
-    def quick_focus(self, surface_index: Optional[int] = None) -> Dict[str, Any]:
-        """
-        快速聚焦
-        
-        Args:
-            surface_index: 面索引，None 表示像面
-            
-        Returns:
-            聚焦结果
-        """
-        try:
-            # 获取快速聚焦工具
-            quick_focus_tool = self.zos.TheSystem.Tools.OpenQuickFocus()
-            
-            if surface_index is not None:
-                quick_focus_tool.Surface = surface_index
-            
-            # 运行快速聚焦
-            quick_focus_tool.RunAndWaitForCompletion()
-            
-            result = {
-                "success": True,
-                "surface_index": surface_index or "Image"
-            }
-            
-            # 关闭工具
-            quick_focus_tool.Close()
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"快速聚焦失败: {str(e)}")
-            raise
+
 
 
 class BatchAnalyzer:
-    """批量分析器"""
+    """
+    批量分析类，用于处理多个光学系统或配置的分析
+    """
     
-    def __init__(self, zos_manager: ZOSAPIManager):
+    def __init__(self, zos_manager):
         """
         初始化批量分析器
         
         Args:
-            zos_manager: ZOSAPI 管理器实例
+            zos_manager: ZOSAPI管理器实例
         """
-        self.zos = zos_manager
+        import matplotlib.pyplot as plt
+        self.zos_manager = zos_manager
         self.analyzer = ZOSAnalyzer(zos_manager)
-    
-    def analyze_all_fields_spots(self, wavelength_index: int = 1) -> List[Dict[str, Any]]:
+        self.results = {}
+        self.plt = plt
+        
+    def analyze_multiple_files(self, file_paths: List[str], 
+                              analysis_types: List[str] = None,
+                              output_dir: str = "batch_output") -> Dict:
         """
-        分析所有视场的点列图
+        批量分析多个光学文件
         
         Args:
-            wavelength_index: 波长索引
+            file_paths: 光学文件路径列表
+            analysis_types: 分析类型列表 ['spot', 'rayfan', 'mtf', 'distortion']
+            output_dir: 输出目录
             
         Returns:
-            所有视场的点列图分析结果列表
+            分析结果字典
         """
-        results = []
-        num_fields = self.zos.TheSystem.SystemData.Fields.NumberOfFields
+        from pathlib import Path
+        import os
         
-        for field_idx in range(1, num_fields + 1):
+        if analysis_types is None:
+            analysis_types = ['spot', 'rayfan', 'mtf']
+            
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        batch_results = {}
+        
+        for file_path in file_paths:
             try:
-                spot_data = self.analyzer.analyze_spot_diagram(
-                    field_index=field_idx, 
-                    wavelength_index=wavelength_index
-                )
-                results.append(spot_data)
+                file_name = Path(file_path).stem
+                logger.info(f"分析文件: {file_name}")
+                
+                # 打开文件
+                self.zos_manager.open_file(file_path)
+                
+                # 创建文件专用输出目录
+                file_output_dir = output_path / file_name
+                file_output_dir.mkdir(exist_ok=True)
+                
+                file_results = {}
+                
+                # 执行指定的分析
+                if 'spot' in analysis_types:
+                    try:
+                        from zosapi_plotting import plot_spots
+                        fig = plot_spots(
+                            self.zos_manager, self.analyzer,
+                            fields="all", wavelengths="all",
+                            save_path=str(file_output_dir / "spots.png")
+                        )
+                        self.plt.close(fig)
+                        file_results['spot'] = str(file_output_dir / "spots.png")
+                    except Exception as e:
+                        logger.error(f"点列图分析失败 {file_name}: {e}")
+                        
+                if 'rayfan' in analysis_types:
+                    try:
+                        from zosapi_plotting import plot_rayfan
+                        fig = plot_rayfan(
+                            self.zos_manager, self.analyzer,
+                            fields="all", wavelengths="single",
+                            save_path=str(file_output_dir / "rayfan.png")
+                        )
+                        self.plt.close(fig)
+                        file_results['rayfan'] = str(file_output_dir / "rayfan.png")
+                    except Exception as e:
+                        logger.error(f"Ray Fan分析失败 {file_name}: {e}")
+                        
+                if 'mtf' in analysis_types:
+                    try:
+                        from zosapi_plotting import plot_mtf
+                        fig = plot_mtf(
+                            self.zos_manager,
+                            fields="all", wavelengths="all",
+                            save_path=str(file_output_dir / "mtf.png")
+                        )
+                        self.plt.close(fig)
+                        file_results['mtf'] = str(file_output_dir / "mtf.png")
+                    except Exception as e:
+                        logger.error(f"MTF分析失败 {file_name}: {e}")
+                        
+                if 'distortion' in analysis_types:
+                    try:
+                        from zosapi_plotting import plot_field_curvature_distortion
+                        fig = plot_field_curvature_distortion(
+                            self.zos_manager, self.analyzer,
+                            save_path=str(file_output_dir / "distortion.png")
+                        )
+                        self.plt.close(fig)
+                        file_results['distortion'] = str(file_output_dir / "distortion.png")
+                    except Exception as e:
+                        logger.error(f"畸变分析失败 {file_name}: {e}")
+                
+                batch_results[file_name] = file_results
+                logger.info(f"完成文件分析: {file_name}")
+                
             except Exception as e:
-                logger.error(f"视场 {field_idx} 点列图分析失败: {str(e)}")
+                logger.error(f"处理文件失败 {file_path}: {e}")
+                batch_results[Path(file_path).stem] = {"error": str(e)}
         
-        return results
+        # 生成批量分析报告
+        self._generate_batch_report(batch_results, output_path)
+        
+        return batch_results
     
-    def analyze_all_wavelengths_mtf(self, field_index: int = 1) -> List[Dict[str, Any]]:
+    def analyze_configuration_sweep(self, config_parameter: str, 
+                                   values: List[float],
+                                   analysis_types: List[str] = None,
+                                   output_dir: str = "config_sweep") -> Dict:
         """
-        分析所有波长的 MTF
+        参数扫描分析
         
         Args:
-            field_index: 视场索引
+            config_parameter: 配置参数名称
+            values: 参数值列表
+            analysis_types: 分析类型列表
+            output_dir: 输出目录
             
         Returns:
-            所有波长的 MTF 分析结果列表
+            扫描分析结果
         """
-        results = []
-        num_wavelengths = self.zos.TheSystem.SystemData.Wavelengths.NumberOfWavelengths
+        from pathlib import Path
         
-        for wl_idx in range(1, num_wavelengths + 1):
+        if analysis_types is None:
+            analysis_types = ['spot', 'rayfan']
+            
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        sweep_results = {}
+        
+        for i, value in enumerate(values):
             try:
-                mtf_data = self.analyzer.analyze_mtf(
-                    field_index=field_index,
-                    wavelength_index=wl_idx
-                )
-                results.append(mtf_data)
+                logger.info(f"分析配置 {config_parameter}={value}")
+                
+                # 这里需要根据具体参数修改系统配置
+                # 示例：修改焦距或其他参数
+                # self._modify_system_parameter(config_parameter, value)
+                
+                config_name = f"{config_parameter}_{value:.3f}"
+                config_output_dir = output_path / config_name
+                config_output_dir.mkdir(exist_ok=True)
+                
+                config_results = {}
+                
+                # 执行分析
+                if 'spot' in analysis_types:
+                    spot_data = self.analyzer.analyze_spot_diagram(field_index=0, wavelength_index=0)
+                    config_results['rms_size'] = spot_data.get('rms_size', None)
+                    
+                if 'rayfan' in analysis_types:
+                    rayfan_data = self.analyzer.analyze_ray_fan(field_index=0, wavelength_index=0)
+                    config_results['max_ray_error'] = max(abs(min(rayfan_data['ray_errors'])), 
+                                                         abs(max(rayfan_data['ray_errors'])))
+                
+                sweep_results[config_name] = config_results
+                
             except Exception as e:
-                logger.error(f"波长 {wl_idx} MTF 分析失败: {str(e)}")
+                logger.error(f"配置分析失败 {config_parameter}={value}: {e}")
+                sweep_results[f"{config_parameter}_{value:.3f}"] = {"error": str(e)}
         
-        return results
-
-
-# === 便捷函数 ===
-
-def quick_spot_analysis(zos_manager: ZOSAPIManager, field_index: int = 1) -> Dict[str, Any]:
-    """快速点列图分析"""
-    analyzer = ZOSAnalyzer(zos_manager)
-    return analyzer.analyze_spot_diagram(field_index=field_index)
-
-
-def quick_mtf_analysis(zos_manager: ZOSAPIManager, field_index: int = 1) -> Dict[str, Any]:
-    """快速 MTF 分析"""
-    analyzer = ZOSAnalyzer(zos_manager)
-    return analyzer.analyze_mtf(field_index=field_index)
-
-
-def quick_system_optimization(zos_manager: ZOSAPIManager) -> Dict[str, Any]:
-    """快速系统优化"""
-    analyzer = ZOSAnalyzer(zos_manager)
-    return analyzer.optimize_system()
+        return sweep_results
+    
+    def _generate_batch_report(self, batch_results: Dict, output_path):
+        """
+        生成批量分析报告
+        
+        Args:
+            batch_results: 批量分析结果
+            output_path: 输出路径
+        """
+        from pathlib import Path
+        report_path = Path(output_path) / "batch_analysis_report.txt"
+        
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write("ZOSAPI 批量分析报告\n")
+            f.write("=" * 50 + "\n\n")
+            
+            for file_name, results in batch_results.items():
+                f.write(f"文件: {file_name}\n")
+                f.write("-" * 30 + "\n")
+                
+                if "error" in results:
+                    f.write(f"错误: {results['error']}\n")
+                else:
+                    for analysis_type, result_path in results.items():
+                        f.write(f"{analysis_type}: {result_path}\n")
+                
+                f.write("\n")
+        
+        logger.info(f"批量分析报告已保存: {report_path}")
+    
+    def compare_systems(self, system_files: List[str], 
+                       analysis_type: str = "spot",
+                       output_dir: str = "comparison") -> Dict:
+        """
+        比较多个光学系统的性能
+        
+        Args:
+            system_files: 系统文件列表
+            analysis_type: 比较的分析类型
+            output_dir: 输出目录
+            
+        Returns:
+            比较结果
+        """
+        from pathlib import Path
+        import matplotlib.pyplot as plt
+        
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        comparison_results = {}
+        
+        # 收集所有系统的数据
+        all_data = {}
+        
+        for file_path in system_files:
+            try:
+                file_name = Path(file_path).stem
+                self.zos_manager.open_file(file_path)
+                
+                if analysis_type == "spot":
+                    spot_data = self.analyzer.analyze_spot_diagram(field_index=0, wavelength_index=0)
+                    all_data[file_name] = {
+                        'rms_size': spot_data.get('rms_size', 0),
+                        'geo_size': spot_data.get('geo_size', 0)
+                    }
+                elif analysis_type == "rayfan":
+                    rayfan_data = self.analyzer.analyze_ray_fan(field_index=0, wavelength_index=0)
+                    max_error = max(abs(min(rayfan_data['ray_errors'])), 
+                                  abs(max(rayfan_data['ray_errors'])))
+                    all_data[file_name] = {'max_ray_error': max_error}
+                    
+            except Exception as e:
+                logger.error(f"比较分析失败 {file_path}: {e}")
+                all_data[Path(file_path).stem] = {"error": str(e)}
+        
+        # 创建比较图表
+        if analysis_type == "spot" and all_data:
+            fig, (ax1, ax2) = self.plt.subplots(1, 2, figsize=(12, 5))
+            
+            systems = list(all_data.keys())
+            rms_sizes = [all_data[sys].get('rms_size', 0) for sys in systems]
+            geo_sizes = [all_data[sys].get('geo_size', 0) for sys in systems]
+            
+            ax1.bar(systems, rms_sizes)
+            ax1.set_title('RMS Spot Size Comparison')
+            ax1.set_ylabel('RMS Size (mm)')
+            ax1.tick_params(axis='x', rotation=45)
+            
+            ax2.bar(systems, geo_sizes)
+            ax2.set_title('Geometric Spot Size Comparison')
+            ax2.set_ylabel('Geometric Size (mm)')
+            ax2.tick_params(axis='x', rotation=45)
+            
+            self.plt.tight_layout()
+            self.plt.savefig(output_path / "system_comparison.png", dpi=300, bbox_inches='tight')
+            self.plt.close()
+            
+            comparison_results['plot'] = str(output_path / "system_comparison.png")
+        
+        comparison_results['data'] = all_data
+        return comparison_results

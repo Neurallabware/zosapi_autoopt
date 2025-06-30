@@ -13,22 +13,16 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 def find_sample_file():
     """Find first Zemax sample file"""
-    base_paths = [
-        r"C:\Program Files\ANSYS Inc\v242\Zemax OpticStudio",
-    ]
-    
+    # 直接使用完整路径，优先使用Double Gauss（有多个视场）
     sample_files = [
-        r"ZemaxData\Samples\Sequential\Objectives\Cooke 40 degree field.zos",
-        r"ZemaxData\Samples\Sequential\Objectives\Double Gauss 28 degree field.zos",
-        r"ZemaxData\Samples\Sequential\Objectives\Singlet.zos"
+        r"C:\Program Files\ANSYS Inc\v242\Zemax OpticStudio\ZemaxData\Samples\Sequential\Objectives\Double Gauss 28 degree field.zos",
+        r"C:\Program Files\ANSYS Inc\v242\Zemax OpticStudio\ZemaxData\Samples\Sequential\Objectives\Cooke 40 degree field.zos",
+        r"C:\Program Files\ANSYS Inc\v242\Zemax OpticStudio\ZemaxData\Samples\Sequential\Objectives\Singlet.zos"
     ]
     
-    for base_path in base_paths:
-        if Path(base_path).exists():
-            for sample_file in sample_files:
-                full_path = Path(base_path) / sample_file
-                if full_path.exists():
-                    return str(full_path)
+    for sample_file in sample_files:
+        if Path(sample_file).exists():
+            return str(sample_file)
     return None
 
 

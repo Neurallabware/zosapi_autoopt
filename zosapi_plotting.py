@@ -1,11 +1,15 @@
-"""
-ZOSAPI Plotting Module - Core functions only
+"""import matplotlib.pyplot as plt
+import numpy as np
+import math
+from typing import Optional, List, Dict, Union
+import logging
+from matplotlib.lines import Line2DPI Plotting Module - Core functions only
 """
 
 import matplotlib.pyplot as plt
 import numpy as np
 import math
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +19,7 @@ plt.rcParams['font.family'] = ['DejaVu Sans', 'Arial', 'sans-serif']
 plt.rcParams['axes.unicode_minus'] = False
 
 
-def plot_multifield_spots(zos_manager, analyzer, 
+def plot_spots(zos_manager, analyzer, 
                          fields: str = "all", wavelengths: str = "all",
                          save_path: Optional[str] = None) -> plt.Figure:
     """
@@ -152,7 +156,7 @@ def plot_multifield_spots(zos_manager, analyzer,
     return fig
 
 
-def plot_multifield_rayfan(zos_manager, analyzer, 
+def plot_rayfan(zos_manager, analyzer, 
                           fields: str = "all", wavelengths: str = "single",
                           save_path: Optional[str] = None) -> plt.Figure:
     """
@@ -300,7 +304,7 @@ def plot_multifield_rayfan(zos_manager, analyzer,
     return fig
 
 
-def plot_system_mtf(zos_manager, 
+def plot_mtf(zos_manager, 
                    fields: str = "all", wavelengths: str = "all",
                    max_frequency: float = 100,
                    save_path: Optional[str] = None) -> plt.Figure:
@@ -396,7 +400,7 @@ def plot_system_mtf(zos_manager,
     return plt.gcf()
 
 
-def plot_comprehensive_analysis(zos_manager, analyzer, 
+def plot_mtf_spot_ranfan(zos_manager, analyzer, 
                                fields: str = "all", wavelengths: str = "all",
                                save_path: Optional[str] = None) -> plt.Figure:
     """
@@ -520,7 +524,7 @@ def plot_comprehensive_analysis(zos_manager, analyzer,
                    color=color, linestyle=linestyle, linewidth=2, 
                    marker='o', markersize=2, label=label)
         
-        ax.set_title(f'Ray Fan F{field_idx+1}')
+        ax.set_title(f'Ray Fan F{field_idx+1}Y')
         ax.set_xlabel('Pupil Coordinate')
         ax.set_ylabel('Ray Error (mm)')
         ax.grid(True, alpha=0.3)
@@ -555,6 +559,138 @@ def plot_comprehensive_analysis(zos_manager, analyzer,
     return fig
 
 
+def plot_field_curvature_distortion(zos_manager, analyzer,
+                                   wavelengths: Union[str, List[int], int] = "all",
+                                   save_path: Optional[str] = None) -> plt.Figure:
+    """
+    Plot field curvature and distortion analysis for multiple wavelengths
+    
+    Args:
+        zos_manager: ZOSAPI manager instance
+        analyzer: ZOSAnalyzer instance
+        wavelengths: "all", "single" (primary), or list of wavelength indices (0-based)
+        save_path: Path to save the plot
+        
+    Returns:
+        Figure object
+    """
+    # Create subplots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    
+    system = zos_manager.TheSystem
+    num_wavelengths = system.SystemData.Wavelengths.NumberOfWavelengths
+    
+    # Parse wavelength selection  
+    if wavelengths == "all":
+        wave_indices = list(range(num_wavelengths))
+    elif wavelengths == "single":
+        # Find primary wavelength
+        primary_wave = 0
+        for i in range(1, num_wavelengths + 1):
+            if system.SystemData.Wavelengths.GetWavelength(i).IsPrimary:
+                primary_wave = i - 1  # Convert to 0-based
+                break
+        wave_indices = [primary_wave]
+    else:
+        if isinstance(wavelengths, int):
+            wave_indices = [wavelengths]
+        else:
+            wave_indices = wavelengths if isinstance(wavelengths, list) else [wavelengths]
+    
+    # Colors for different wavelengths - Zemax风格色彩
+    colors = ('b', 'g', 'r', 'c', 'm', 'y', 'k')
+    linestyles = ['-', '--']  # 实线用于切向(T)，虚线用于弧矢(S)
+    
+    legend_entries = []
+    
+    # 遍历所有选定的波长
+    for wave_idx, wavelength_index in enumerate(wave_indices):
+        # Get wavelength information
+        wavelength = system.SystemData.Wavelengths.GetWavelength(wavelength_index + 1)
+        wave_value = wavelength.Wavelength
+        
+        # 为当前波长选择颜色
+        color = colors[wave_idx % len(colors)]
+        
+        # Analyze field curvature and distortion for this wavelength
+        distortion_data = analyzer.analyze_field_curvature_distortion(num_points=50, wavelength_index=wavelength_index)
+        
+        # Plot field curvature for this wavelength
+        if distortion_data['field_heights']:
+            field_heights = distortion_data['field_heights']
+            tangential_fc = distortion_data['tangential_field_curvature']
+            sagittal_fc = distortion_data['sagittal_field_curvature']
+            
+            # 切向曲线 (T) - 实线 - 注意X、Y轴交换
+            if tangential_fc:
+                ax1.plot(tangential_fc, field_heights, color=color, linestyle=linestyles[0], linewidth=2, 
+                        label=f'{wave_value:.4f}-Tangential')
+                legend_entries.append(f'{wave_value:.4f}-Tangential')
+                
+            # 弧矢曲线 (S) - 虚线 - 注意X、Y轴交换
+            if sagittal_fc:
+                ax1.plot(sagittal_fc, field_heights, color=color, linestyle=linestyles[1], linewidth=2,
+                        label=f'{wave_value:.4f}-Sagittal')
+                legend_entries.append(f'{wave_value:.4f}-Sagittal')
+            
+            # Plot distortion for this wavelength
+            if distortion_data['distortion_percent']:
+                distortion = distortion_data['distortion_percent']
+                ax2.plot(distortion, field_heights, color=color, linewidth=2,
+                        label=f'{wave_value:.4f}')
+    
+    # Format field curvature subplot - 交换X、Y轴标签
+    ax1.set_title('Field Curvature')
+    ax1.set_xlabel('Field Curvature (mm)')
+    ax1.set_ylabel('Field Height')
+    ax1.grid(True, alpha=0.3)
+    ax1.axvline(x=0, color='black', linestyle='-', alpha=0.3)  # 零线现在是垂直的
+    
+    if legend_entries:
+        ax1.legend()
+    else:
+        ax1.text(0.5, 0.5, 'No Field Curvature Data', 
+                transform=ax1.transAxes, ha='center', va='center')
+    
+    # Format distortion subplot - 交换X、Y轴标签
+    ax2.set_title('Distortion')
+    ax2.set_xlabel('Distortion (%)')
+    ax2.set_ylabel('Field Height')
+    ax2.grid(True, alpha=0.3)
+    ax2.axvline(x=0, color='black', linestyle='-', alpha=0.3)  # 零线现在是垂直的
+    
+    if ax2.get_lines():
+        ax2.legend()
+    else:
+        ax2.text(0.5, 0.5, 'No Distortion Data', 
+                transform=ax2.transAxes, ha='center', va='center')
+    
+    # Create title based on wavelength selection
+    if wavelengths == "all":
+        title = "Field Curvature and Distortion Analysis - All Wavelengths"
+    elif wavelengths == "single":
+        title = f"Field Curvature and Distortion Analysis - Primary Wavelength"
+    else:
+        if len(wave_indices) == 1:
+            wavelength = system.SystemData.Wavelengths.GetWavelength(wave_indices[0] + 1)
+            wave_value = wavelength.Wavelength
+            title = f"Field Curvature and Distortion Analysis (λ={wave_value:.4f}nm)"
+        else:
+            title = f"Field Curvature and Distortion Analysis - Selected Wavelengths"
+    
+    plt.suptitle(title, fontsize=14)
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        logger.info(f"Field curvature and distortion plot saved to: {save_path}")
+    
+    return fig
+
+
+
+
+
 # === Super convenient one-liner functions ===
 
 def analyze_and_plot_system(zos_manager, output_dir: str = ".", 
@@ -573,9 +709,18 @@ def analyze_and_plot_system(zos_manager, output_dir: str = ".",
     """
     from pathlib import Path
     from zosapi_analysis import ZOSAnalyzer
+    import os
     
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)  # Create directory if it doesn't exist
+    
+    # 清理可能存在的旧场曲和畸变文件，防止混淆
+    for old_file in output_path.glob("field_curvature_distortion*.png"):
+        try:
+            os.remove(old_file)
+            logger.info(f"Removed old file: {old_file}")
+        except Exception as e:
+            logger.warning(f"Failed to remove old file {old_file}: {e}")
     
     analyzer = ZOSAnalyzer(zos_manager)
     
@@ -584,25 +729,33 @@ def analyze_and_plot_system(zos_manager, output_dir: str = ".",
     # Plot all analysis types with specified field/wavelength selections
     try:
         # MTF
-        fig = plot_system_mtf(zos_manager, fields=fields, wavelengths=wavelengths, 
+        fig = plot_mtf(zos_manager, fields=fields, wavelengths=wavelengths, 
                              save_path=str(output_path / "system_mtf.png"))
         plt.close()
         saved_files['mtf'] = str(output_path / "system_mtf.png")
         
         # Spot diagrams
-        fig = plot_multifield_spots(zos_manager, analyzer, fields=fields, wavelengths=wavelengths,
+        fig = plot_spots(zos_manager, analyzer, fields=fields, wavelengths=wavelengths,
                                    save_path=str(output_path / "multifield_spots.png"))
         plt.close()
         saved_files['spots'] = str(output_path / "multifield_spots.png")
         
         # Ray fans
-        fig = plot_multifield_rayfan(zos_manager, analyzer, fields=fields, wavelengths=wavelengths,
+        fig = plot_rayfan(zos_manager, analyzer, fields=fields, wavelengths=wavelengths,
                                     save_path=str(output_path / "multifield_rayfan.png"))
         plt.close()
         saved_files['rayfan'] = str(output_path / "multifield_rayfan.png")
         
+        # Field curvature and distortion
+        # 场曲和畸变分析 - 使用所有选定的波长
+        fig = plot_field_curvature_distortion(zos_manager, analyzer,
+                                             wavelengths=wavelengths,
+                                             save_path=str(output_path / "field_curvature_distortion.png"))
+        plt.close()
+        saved_files['distortion'] = str(output_path / "field_curvature_distortion.png")
+        
         # Comprehensive
-        fig = plot_comprehensive_analysis(zos_manager, analyzer, fields=fields, wavelengths=wavelengths,
+        fig = plot_mtf_spot_ranfan(zos_manager, analyzer, fields=fields, wavelengths=wavelengths,
                                          save_path=str(output_path / "comprehensive_analysis.png"))
         plt.close()
         saved_files['comprehensive'] = str(output_path / "comprehensive_analysis.png")
