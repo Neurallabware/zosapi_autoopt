@@ -318,7 +318,7 @@ zosapi/
 
 ## 环境要求 | Environment Requirements
 
-- **Python**: 3.7+ 
+- **Python**: 3.8，pythonnet = 2.5.2
 - **Zemax OpticStudio**: 需要运行中，支持ZOSAPI
   *Must be running with ZOSAPI support*
 - **Python包 | Python packages**: matplotlib, numpy, logging
