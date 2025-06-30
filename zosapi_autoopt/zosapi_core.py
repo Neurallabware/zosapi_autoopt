@@ -10,7 +10,7 @@ import os
 import winreg
 from typing import Optional, Union
 import logging
-from config import LOG_SETTINGS
+from .config import LOG_SETTINGS
 
 # 配置日志 - 使用配置文件中的设置
 log_level = getattr(logging, LOG_SETTINGS.get("level", "WARNING").upper())

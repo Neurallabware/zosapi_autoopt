@@ -7,7 +7,8 @@ import logging
 import argparse
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+# 添加父目录到路径，以便导入zosapi_autoopt包
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 
@@ -29,8 +30,8 @@ def find_sample_file():
 def main():
     """Main test function"""
     # 导入模块
-    from zosapi_core import ZOSAPIManager
-    from zosapi_plotting import analyze_and_plot_system
+    from zosapi_autoopt.zosapi_core import ZOSAPIManager
+    from zosapi_autoopt.zosapi_plotting import analyze_and_plot_system
     
     # Connect to Zemax
     zos_manager = ZOSAPIManager()
@@ -48,7 +49,7 @@ def main():
         
     # Complete analysis
     print("Running analysis...")
-    saved_files = analyze_and_plot_system(zos_manager, output_dir="zosapi_output")
+    saved_files = analyze_and_plot_system(zos_manager, output_dir="output")
 
     print("\nAnalysis completed! Generated plots:")
     for analysis_type, file_path in saved_files.items():

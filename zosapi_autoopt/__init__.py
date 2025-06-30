@@ -7,16 +7,18 @@ Zemax OpticStudio Python API 封装库
 - zosapi_utils: 数据处理和转换工具
 - zosapi_plotting: 绘图和可视化功能
 - zosapi_analysis: 光学分析功能
+- example_usage: 使用示例
 
 Author: allin-love
 Date: 2025-06-29
 Version: 1.0.0
 """
 
-from zosapi_autoopt.zosapi_core import ZOSAPIManager, quick_connect, create_zosapi_manager
-from zosapi_autoopt.zosapi_analysis import ZOSAnalyzer, BatchAnalyzer
-from zosapi_autoopt.zosapi_plotting import plot_spots, plot_rayfan, plot_mtf, plot_field_curvature_distortion, analyze_and_plot_system
-from zosapi_autoopt.zosapi_utils import ZOSDataProcessor
+from .zosapi_core import ZOSAPIManager, quick_connect, create_zosapi_manager
+from .zosapi_analysis import ZOSAnalyzer, BatchAnalyzer
+# 由于没有ZOSPlotter类，因此从plot_spots开始导入重要的绘图函数
+from .zosapi_plotting import plot_spots, plot_rayfan, plot_mtf, plot_field_curvature_distortion, analyze_and_plot_system
+from .zosapi_utils import ZOSDataProcessor
 
 __version__ = "1.0.0"
 __author__ = "allin-love"

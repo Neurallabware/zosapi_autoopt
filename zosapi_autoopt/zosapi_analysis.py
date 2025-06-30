@@ -8,8 +8,8 @@ Date: 2025-06-29
 import logging
 from typing import Optional, Dict, List, Tuple, Any
 import numpy as np
-from zosapi_core import ZOSAPIManager
-from zosapi_utils import ZOSDataProcessor, zos_array_to_numpy, extract_zos_vector
+from .zosapi_core import ZOSAPIManager
+from .zosapi_utils import ZOSDataProcessor, zos_array_to_numpy, extract_zos_vector
 
 logger = logging.getLogger(__name__)
 
@@ -802,7 +802,7 @@ class BatchAnalyzer:
                 # 执行指定的分析
                 if 'spot' in analysis_types:
                     try:
-                        from zosapi_plotting import plot_spots
+                        from .zosapi_plotting import plot_spots
                         fig = plot_spots(
                             self.zos_manager, self.analyzer,
                             fields="all", wavelengths="all",
@@ -815,7 +815,7 @@ class BatchAnalyzer:
                         
                 if 'rayfan' in analysis_types:
                     try:
-                        from zosapi_plotting import plot_rayfan
+                        from .zosapi_plotting import plot_rayfan
                         fig = plot_rayfan(
                             self.zos_manager, self.analyzer,
                             fields="all", wavelengths="single",
@@ -828,7 +828,7 @@ class BatchAnalyzer:
                         
                 if 'mtf' in analysis_types:
                     try:
-                        from zosapi_plotting import plot_mtf
+                        from .zosapi_plotting import plot_mtf
                         fig = plot_mtf(
                             self.zos_manager,
                             fields="all", wavelengths="all",
@@ -841,7 +841,7 @@ class BatchAnalyzer:
                         
                 if 'distortion' in analysis_types:
                     try:
-                        from zosapi_plotting import plot_field_curvature_distortion
+                        from .zosapi_plotting import plot_field_curvature_distortion
                         fig = plot_field_curvature_distortion(
                             self.zos_manager, self.analyzer,
                             save_path=str(file_output_dir / "distortion.png")

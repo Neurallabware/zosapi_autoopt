@@ -321,7 +321,7 @@ def plot_mtf(zos_manager,
     Returns:
         Figure object
     """
-    from zosapi_utils import reshape_zos_data
+    from .zosapi_utils import reshape_zos_data
     
     system = zos_manager.TheSystem
     
@@ -416,7 +416,7 @@ def plot_mtf_spot_ranfan(zos_manager, analyzer,
     Returns:
         Figure object
     """
-    from zosapi_utils import reshape_zos_data
+    from .zosapi_utils import reshape_zos_data
     
     system = zos_manager.TheSystem
     num_fields = system.SystemData.Fields.NumberOfFields
@@ -708,7 +708,7 @@ def analyze_and_plot_system(zos_manager, output_dir: str = ".",
         Dictionary with saved file paths
     """
     from pathlib import Path
-    from zosapi_analysis import ZOSAnalyzer
+    from .zosapi_analysis import ZOSAnalyzer
     import os
     
     output_path = Path(output_dir)

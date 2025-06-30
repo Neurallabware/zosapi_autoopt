@@ -17,7 +17,7 @@ DEFAULT_ZEMAX_PATHS = [
 ]
 
 # 输出目录
-OUTPUT_DIR = "zosapi_output"
+OUTPUT_DIR = "output"
 
 # 示例文件路径
 SAMPLE_FILES = {
