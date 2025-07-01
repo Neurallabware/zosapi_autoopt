@@ -11,7 +11,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-
 def find_sample_file():
     """Find first Zemax sample file"""
     # 直接使用完整路径，优先使用Double Gauss（有多个视场）
@@ -32,29 +31,31 @@ def main():
     # 导入模块
     from zosapi_autoopt.zosapi_core import ZOSAPIManager
     from zosapi_autoopt.zosapi_plotting import analyze_and_plot_system
-    
+    from zosapi_autoopt.zosapi_layout import ZOSLayoutAnalyzer
+
     # Connect to Zemax
     zos_manager = ZOSAPIManager()
-    assert zos_manager.is_connected, "Failed to connect to Zemax OpticStudio"
     print("Connected to Zemax OpticStudio")
     
     # Load sample file or create new system
     sample_file = find_sample_file()
-    if sample_file:
-        zos_manager.open_file(sample_file)
-        print(f"Loaded: {Path(sample_file).name}")
-    else:
-        zos_manager.new_file()
-        print("No sample files found - using new empty system")
+    zos_manager.open_file(sample_file)
+    
         
     # Complete analysis
     print("Running analysis...")
     saved_files = analyze_and_plot_system(zos_manager, output_dir="output")
-
-    print("\nAnalysis completed! Generated plots:")
     for analysis_type, file_path in saved_files.items():
         print(f"  - {analysis_type}: {Path(file_path).name}")
+
+
+    # Create layout analyzer
+    layout_analyzer = ZOSLayoutAnalyzer(zos_manager)
+    layout_analyzer.export_cross_section("output/layout_export.png")
+    print("Layout export completed: output/layout_export.png")
     
+    
+    # Disconnect from Zemax
     zos_manager.disconnect()
     print("Disconnected from Zemax OpticStudio")
     return True

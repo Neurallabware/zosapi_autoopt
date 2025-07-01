@@ -19,6 +19,9 @@ from .zosapi_analysis import ZOSAnalyzer, BatchAnalyzer
 # 由于没有ZOSPlotter类，因此从plot_spots开始导入重要的绘图函数
 from .zosapi_plotting import plot_spots, plot_rayfan, plot_mtf, plot_field_curvature_distortion, analyze_and_plot_system
 from .zosapi_utils import ZOSDataProcessor
+from .zosapi_layout import (
+    ZOSLayoutAnalyzer
+)
 
 __version__ = "1.0.0"
 __author__ = "allin-love"
@@ -28,6 +31,7 @@ __all__ = [
     "ZOSAnalyzer", 
     "BatchAnalyzer",
     "ZOSDataProcessor",
+    "ZOSLayoutAnalyzer",
     
     # 便捷函数
     "quick_connect",
@@ -38,7 +42,13 @@ __all__ = [
     "plot_rayfan", 
     "plot_mtf", 
     "plot_field_curvature_distortion",
-    "analyze_and_plot_system"
+    "analyze_and_plot_system",
+    
+    # Layout函数
+    "generate_system_layouts_enhanced",
+    "create_comprehensive_layout_analysis",
+    "quick_layout_export",
+    "print_layout_presets"
 ]
 
 def get_version():

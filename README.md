@@ -22,6 +22,9 @@
 - **场曲畸变分析 | Field Curvature & Distortion**: 支持多波长分析，与Zemax风格一致
   *Multi-wavelength analysis, consistent with Zemax style visualization*
   
+- **系统Layout分析 | System Layout Analysis**: 完整的2D/3D系统布局图生成和导出
+  *Complete 2D/3D system layout generation and export capabilities*
+  
 - **综合分析 | Comprehensive Analysis**: 在一张图中集成MTF、点列图和光线扇形图
   *Integration of MTF, spot diagrams, and ray fans in a single comprehensive figure*
   
@@ -73,6 +76,35 @@ plot_field_curvature_distortion(zos_manager, analyzer,
                                save_path="field_curvature.png")
 ```
 
+### 系统Layout分析 | System Layout Analysis
+
+```python
+from zosapi_layout import ZOSLayoutAnalyzer, quick_layout_export, print_layout_presets
+
+# 查看所有可用预设 | View all available presets
+print_layout_presets(is_nsc=False)
+
+# 快速导出（推荐方式）| Quick export (recommended)
+layout_files = quick_layout_export(zos_manager, "./layouts", preset="high_quality")
+
+# 创建Layout分析器 | Create layout analyzer
+layout_analyzer = ZOSLayoutAnalyzer(zos_manager)
+
+# 使用预设生成所有Layout | Generate all layouts with preset
+layout_files = layout_analyzer.generate_all_layouts("./layouts", preset="publication")
+
+# 导出截面图（高度可定制）| Export cross-section with high customization
+layout_analyzer.export_cross_section("cross_section.png", 
+                                    number_of_rays=50,
+                                    output_pixel_width=1200,
+                                    color_rays_by="Wavelength")
+
+# 一键生成所有Layout类型 | One-click generation of all layout types
+layout_files = create_comprehensive_layout_analysis(zos_manager, 
+                                                   output_dir="layouts",
+                                                   preset="high_quality")
+```
+
 ---
 
 ## 特点与优化 | Features and Optimizations
@@ -101,9 +133,23 @@ plot_field_curvature_distortion(zos_manager, analyzer,
 - Zemax风格的坐标系与显示方式
   *Zemax-style coordinate system and display method*
 
+### 系统Layout分析 | System Layout Analysis
+- 完整的2D/3D系统布局图生成和导出功能
+  *Complete 2D/3D system layout generation and export capabilities*
+- 多种预设配置，从草图模式到发布质量
+  *Multiple preset configurations from draft mode to publication quality*
+- 高度可定制的截面图配置（光线数量、分辨率、颜色编码等）
+  *Highly customizable cross-section configuration (ray count, resolution, color coding, etc.)*
+- 支持Sequential和NSC系统的不同Layout类型
+  *Support for different layout types for Sequential and NSC systems*
+- 自动生成Layout对比图，便于系统分析
+  *Automatic generation of layout comparison charts for system analysis*
+- 智能预设选择和错误处理机制
+  *Intelligent preset selection and error handling mechanisms*
+
 ### 全面的系统分析 | Comprehensive System Analysis
-- 一键生成包含MTF、点列图、光线扇形图的综合分析
-  *One-click generation of comprehensive analysis including MTF, spot diagrams, and ray fans*
+- 一键生成包含MTF、点列图、光线扇形图和Layout的综合分析
+  *One-click generation of comprehensive analysis including MTF, spot diagrams, ray fans, and layouts*
 - 专业的图表样式与标签，适合论文和报告
   *Professional chart style and labeling suitable for papers and reports*
 - 高DPI输出（300 DPI），图像质量优秀
@@ -194,7 +240,41 @@ plot_field_curvature_distortion(zos_manager, analyzer,
                                save_path="field_curvature.png")
 ```
 
-### 5. 综合分析 | Comprehensive Analysis
+### 5. 系统Layout分析 | System Layout Analysis
+```python
+from zosapi_layout import ZOSLayoutAnalyzer, quick_layout_export, print_layout_presets
+
+# 查看可用预设 | View available presets
+print_layout_presets(is_nsc=False)
+
+# 快速导出（最简单）| Quick export (simplest way)
+layout_files = quick_layout_export(zos_manager, "./layouts", preset="high_quality")
+
+# 创建Layout分析器 | Create layout analyzer
+layout_analyzer = ZOSLayoutAnalyzer(zos_manager)
+
+# 基础截面图 | Basic cross-section
+layout_analyzer.export_cross_section("cross_section.png")
+
+# 高级截面图配置 | Advanced cross-section configuration
+layout_analyzer.export_cross_section("advanced_cross_section.png",
+                                    number_of_rays=50,
+                                    output_pixel_width=1200,
+                                    y_stretch=1.5,
+                                    color_rays_by="Wavelength",
+                                    marginal_and_chief_ray_only=False)
+
+# 3D布局图 | 3D layout
+layout_analyzer.export_3d_viewer("3d_layout.png")
+layout_analyzer.export_shaded_model("shaded_model.png")
+
+# 使用预设批量生成所有Layout | Batch generate all layouts with presets
+layout_files = layout_analyzer.generate_all_layouts("./layouts", 
+                                                   preset="publication", 
+                                                   is_nsc=False)
+```
+
+### 6. 综合分析 | Comprehensive Analysis
 ```python
 # 综合分析图表 | Comprehensive analysis chart
 plot_mtf_spot_ranfan(zos_manager, analyzer,
@@ -203,13 +283,14 @@ plot_mtf_spot_ranfan(zos_manager, analyzer,
                     save_path="comprehensive.png")
 ```
 
-### 6. 一键完成所有分析 | One-Click Complete Analysis
+### 7. 一键完成所有分析 | One-Click Complete Analysis
 ```python
 # 一行代码完成所有分析 | All analyses with one line of code
 saved_files = analyze_and_plot_system(zos_manager, 
                                      output_dir="results",
                                      fields="all",
-                                     wavelengths="all")
+                                     wavelengths="all",
+                                     include_layouts=True)  # 包含Layout图
 ```
 
 ---
@@ -263,6 +344,18 @@ zosapi/
 - `comprehensive_analysis.png` - 综合分析图 | Comprehensive analysis
   *集成MTF、点列图和光线扇形图的综合分析*
   *Integrated analysis of MTF, spot diagrams, and ray fans*
+
+- `layout_cross_section.png` - 系统截面图 | System cross-section layout
+  *高分辨率光学系统截面视图，支持光线追迹显示*
+  *High-resolution optical system cross-section view with ray tracing display*
+
+- `layout_3d_viewer.png` - 3D系统布局图 | 3D system layout
+  *三维光学系统可视化，直观展示系统结构*
+  *3D optical system visualization showing system structure intuitively*
+
+- `layout_comparison.png` - Layout对比图 | Layout comparison
+  *所有Layout类型的综合对比视图*
+  *Comprehensive comparison view of all layout types*
 
 ---
 

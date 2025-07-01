@@ -694,7 +694,8 @@ def plot_field_curvature_distortion(zos_manager, analyzer,
 # === Super convenient one-liner functions ===
 
 def analyze_and_plot_system(zos_manager, output_dir: str = ".", 
-                           fields: str = "all", wavelengths: str = "all") -> Dict[str, str]:
+                           fields: str = "all", wavelengths: str = "all",
+                           include_layouts: bool = True, is_nsc: bool = False) -> Dict[str, str]:
     """
     One-liner function to analyze and plot everything for a loaded system
     
@@ -703,6 +704,8 @@ def analyze_and_plot_system(zos_manager, output_dir: str = ".",
         output_dir: Directory to save plots
         fields: "all", "single" (first field), or list of field indices (0-based)
         wavelengths: "all", "single" (primary), or list of wavelength indices (0-based)
+        include_layouts: Whether to generate system layout plots
+        is_nsc: Whether this is an NSC (Non-Sequential Components) system
         
     Returns:
         Dictionary with saved file paths

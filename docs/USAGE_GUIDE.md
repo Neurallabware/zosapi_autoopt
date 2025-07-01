@@ -11,12 +11,14 @@
 - **Ray Fan分析**: X/Y方向像差曲线，数据提取完全对应Zemax原生结果
 - **MTF分析**: 调制传递函数分析，支持多视场和多波长
 - **畸变分析**: 场曲和畸变分析，包括网格畸变可视化
+- **系统Layout分析**: 完整的2D/3D系统布局图生成和导出功能
 
 ### 2. 高级功能
 - **批量分析**: 支持多个光学文件的批量处理
 - **系统比较**: 不同光学系统性能对比分析
 - **一键综合分析**: 生成包含所有分析类型的综合报告
 - **参数扫描**: 支持配置参数的扫描分析
+- **Layout定制**: 高度可定制的截面图配置（光线数量、分辨率、颜色编码等）
 
 ### 3. 核心修复和优化
 - ✅ **点列图子图物理尺寸一致**: 使用 `constrained_layout=True` 和 `aspect='equal'` 确保真实比例
@@ -33,6 +35,7 @@ zosapi/
 ├── zosapi_core.py             # ZOSAPI核心连接管理
 ├── zosapi_analysis.py         # 分析功能实现
 ├── zosapi_plotting.py         # 绘图和可视化
+├── zosapi_layout.py           # Layout分析功能
 ├── zosapi_utils.py            # 工具函数
 ├── test_with_sample.py        # 基础测试脚本
 ├── test_comprehensive.py      # 全面功能测试
@@ -136,6 +139,28 @@ distortion_data = analyzer.analyze_field_curvature_distortion(num_points=50)
 grid_data = analyzer.analyze_grid_distortion(field_index=0, wavelength_index=0)
 ```
 
+### ZOSLayoutAnalyzer 类
+```python
+layout_analyzer = ZOSLayoutAnalyzer(zos_manager)
+
+# 基础截面图导出
+layout_analyzer.export_cross_section("cross_section.png")
+
+# 高级截面图配置
+layout_analyzer.export_cross_section("advanced_cross_section.png",
+                                    number_of_rays=50,
+                                    output_pixel_width=1200,
+                                    y_stretch=1.5,
+                                    color_rays_by="Wavelength")
+
+# 3D布局导出
+layout_analyzer.export_3d_viewer("3d_layout.png")
+layout_analyzer.export_shaded_model("shaded_model.png")
+
+# 批量生成所有Layout
+layout_files = layout_analyzer.generate_all_layouts("./layouts", is_nsc=False)
+```
+
 ### 绘图函数
 ```python
 # 多视场点列图
@@ -150,8 +175,13 @@ plot_mtf(zos_manager, fields="all", wavelengths="all")
 # 畸变分析
 plot_field_curvature_distortion(zos_manager, analyzer)
 
-# 综合分析
+# Layout分析
+layout_analyzer = ZOSLayoutAnalyzer(zos_manager)
+layout_files = layout_analyzer.generate_all_layouts("./layouts")
+
+# 综合分析（包含Layout）
 plot_mtf_spot_ranfan(zos_manager, analyzer, fields="all", wavelengths="all")
+analyze_and_plot_system(zos_manager, output_dir="results", include_layouts=True)
 ```
 
 ## 参数说明
@@ -171,6 +201,16 @@ plot_mtf_spot_ranfan(zos_manager, analyzer, fields="all", wavelengths="all")
 - `"rayfan"`: Ray Fan分析
 - `"mtf"`: MTF分析
 - `"distortion"`: 畸变分析
+- `"layout"`: 系统Layout分析
+
+### Layout配置参数 (layout_config)
+截面图配置:
+- `output_pixel_width/height`: 图像分辨率 (默认800x600)
+- `number_of_rays`: 光线数量 (默认25)
+- `y_stretch`: Y轴拉伸比例 (默认1.0)
+- `color_rays_by`: 光线颜色分类 ("Wavelength", "Field", "Configuration")
+- `marginal_and_chief_ray_only`: 是否仅显示主边缘光线 (默认False)
+- `delete_vignetted`: 是否删除渐晕光线 (默认False)
 
 ## 输出文件说明
 
@@ -180,6 +220,9 @@ plot_mtf_spot_ranfan(zos_manager, analyzer, fields="all", wavelengths="all")
 - `system_mtf.png`: 系统MTF曲线
 - `field_curvature_distortion.png`: 场曲和畸变分析
 - `comprehensive_analysis.png`: 综合分析大图
+- `layout_cross_section.png`: 系统截面图
+- `layout_3d_viewer.png`: 3D系统布局图
+- `layout_comparison.png`: Layout对比图
 
 ### 批量分析输出
 ```
@@ -188,11 +231,19 @@ batch_output/
 ├── system1/                     # 各系统分析结果
 │   ├── spots.png
 │   ├── rayfan.png
-│   └── distortion.png
+│   ├── distortion.png
+│   └── layouts/
+│       ├── layout_cross_section.png
+│       ├── layout_3d_viewer.png
+│       └── layout_comparison.png
 └── system2/
     ├── spots.png
     ├── rayfan.png
-    └── distortion.png
+    ├── distortion.png
+    └── layouts/
+        ├── layout_cross_section.png
+        ├── layout_3d_viewer.png
+        └── layout_comparison.png
 ```
 
 ## 测试脚本
@@ -202,15 +253,11 @@ batch_output/
 python test_with_sample.py
 ```
 
-### 2. 全面功能测试
+### 2. Layout功能测试
 ```bash
-python test_comprehensive.py
+python tests/test_layout.py
 ```
 
-### 3. 畸变分析测试
-```bash
-python test_distortion.py
-```
 
 ## 技术特点
 
@@ -302,6 +349,5 @@ def plot_new_feature(zos_manager, analyzer, save_path=None):
 ---
 
 **注意**: 使用本系统前请确保：
-1. Zemax OpticStudio 正在运行
-2. 已正确安装 ZOSAPI Python 包
-3. Python 环境包含必要的依赖包（matplotlib, numpy等）
+1. 已正确安装 ZOSAPI Python 包
+2. Python 环境包含必要的依赖包（matplotlib, numpy等）

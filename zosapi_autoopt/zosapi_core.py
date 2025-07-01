@@ -225,6 +225,12 @@ class ZOSAPIManager:
         except Exception as e:
             logger.error(f"断开连接时发生错误: {str(e)}")
     
+    def close(self) -> None:
+        """
+        关闭连接（disconnect的别名）
+        """
+        self.disconnect()
+    
     def __enter__(self):
         """上下文管理器入口"""
         return self
@@ -239,13 +245,16 @@ class ZOSAPIManager:
     
     # === 文件操作方法 ===
     
-    def open_file(self, filepath: str, save_if_needed: bool = True) -> None:
+    def open_file(self, filepath: str, save_if_needed: bool = False) -> bool:
         """
         打开光学系统文件
         
         Args:
             filepath: 文件路径
             save_if_needed: 如果需要是否保存当前文件
+            
+        Returns:
+            bool: 是否成功打开文件
             
         Raises:
             SystemNotPresentException: 系统不存在
@@ -254,11 +263,29 @@ class ZOSAPIManager:
             raise SystemNotPresentException("无法获取主系统")
         
         try:
-            self.TheSystem.LoadFile(filepath, save_if_needed)
-            logger.info(f"成功打开文件: {filepath}")
+            # 确保路径存在
+            if not os.path.exists(filepath):
+                logger.error(f"文件不存在: {filepath}")
+                return False
+            
+            # 使用绝对路径
+            abs_filepath = os.path.abspath(filepath)
+            logger.info(f"尝试加载文件: {abs_filepath}")
+            
+            # 调用LoadFile方法
+            result = self.TheSystem.LoadFile(abs_filepath, save_if_needed)
+            
+            # 检查结果（某些版本的LoadFile会返回状态）
+            if hasattr(result, 'Success') and not result.Success:
+                logger.error(f"文件加载失败: {result.ErrorMessage if hasattr(result, 'ErrorMessage') else '未知错误'}")
+                return False
+            
+            logger.info(f"成功打开文件: {abs_filepath}")
+            return True
+            
         except Exception as e:
             logger.error(f"打开文件失败: {str(e)}")
-            raise
+            return False
     
     def close_file(self, save: bool = False) -> None:
         """
