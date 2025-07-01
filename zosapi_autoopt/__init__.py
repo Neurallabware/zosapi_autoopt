@@ -14,7 +14,7 @@ Date: 2025-06-29
 Version: 1.0.0
 """
 
-from .zosapi_core import ZOSAPIManager, quick_connect, create_zosapi_manager
+from .zosapi_core import ZOSAPIManager, create_zosapi_manager
 from .zosapi_analysis import ZOSAnalyzer, BatchAnalyzer
 # 由于没有ZOSPlotter类，因此从plot_spots开始导入重要的绘图函数
 from .zosapi_plotting import plot_spots, plot_rayfan, plot_mtf, plot_field_curvature_distortion, analyze_and_plot_system
@@ -34,7 +34,6 @@ __all__ = [
     "ZOSLayoutAnalyzer",
     
     # 便捷函数
-    "quick_connect",
     "create_zosapi_manager",
     
     # 绘图函数
@@ -44,11 +43,7 @@ __all__ = [
     "plot_field_curvature_distortion",
     "analyze_and_plot_system",
     
-    # Layout函数
-    "generate_system_layouts_enhanced",
-    "create_comprehensive_layout_analysis",
-    "quick_layout_export",
-    "print_layout_presets"
+
 ]
 
 def get_version():

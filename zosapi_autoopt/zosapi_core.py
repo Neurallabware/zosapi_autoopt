@@ -440,15 +440,3 @@ def create_zosapi_manager(custom_path: Optional[str] = None) -> ZOSAPIManager:
     return ZOSAPIManager(custom_path=custom_path)
 
 
-def quick_connect(custom_path: Optional[str] = None) -> ZOSAPIManager:
-    """
-    快速连接的便捷函数
-    
-    Args:
-        custom_path: 自定义 OpticStudio 安装路径
-        
-    Returns:
-        已连接的 ZOSAPIManager 实例
-    """
-    manager = ZOSAPIManager(custom_path=custom_path, auto_connect=True)
-    return manager

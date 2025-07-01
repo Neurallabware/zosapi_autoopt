@@ -13,10 +13,11 @@ Date: 2025-06-29
 Version: 1.0.0
 """
 
-from zosapi_autoopt.zosapi_core import ZOSAPIManager, quick_connect, create_zosapi_manager
+from zosapi_autoopt.zosapi_core import ZOSAPIManager, create_zosapi_manager
 from zosapi_autoopt.zosapi_analysis import ZOSAnalyzer, BatchAnalyzer
 from zosapi_autoopt.zosapi_plotting import plot_spots, plot_rayfan, plot_mtf, plot_field_curvature_distortion, analyze_and_plot_system
 from zosapi_autoopt.zosapi_utils import ZOSDataProcessor
+from zosapi_autoopt import get_version, get_info
 
 __version__ = "1.0.0"
 __author__ = "allin-love"
@@ -28,7 +29,6 @@ __all__ = [
     "ZOSDataProcessor",
     
     # 便捷函数
-    "quick_connect",
     "create_zosapi_manager",
     
     # 绘图函数
@@ -36,18 +36,11 @@ __all__ = [
     "plot_rayfan", 
     "plot_mtf", 
     "plot_field_curvature_distortion",
-    "analyze_and_plot_system"
+    "analyze_and_plot_system",
+    
+    # 工具函数
+    "get_version",
+    "get_info"
 ]
 
-def get_version():
-    """获取版本信息"""
-    return __version__
 
-def get_info():
-    """获取库信息"""
-    return {
-        "name": "Zemax OpticStudio Python API 封装库",
-        "version": __version__,
-        "author": __author__,
-        "description": "提供简化的接口用于光学分析和优化"
-    }
