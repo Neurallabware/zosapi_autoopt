@@ -150,7 +150,74 @@ class SystemParameterManager:
             logger.error(f"添加波长失败: {str(e)}")
             raise
 
-  
+    def set_wavelengths(self, wavelength_list: List[float], weights: List[float] = None):
+        """
+        设置系统波长
+        
+        Args:
+            wavelength_list: 波长列表 (纳米)
+            weights: 各波长的权重列表，默认每个波长权重为1.0
+        """
+        try:
+            # 获取波长对象
+            wavelengths = self.system_data.Wavelengths
+            
+            # 先记录当前波长数量
+            current_wl_count = wavelengths.NumberOfWavelengths
+            
+            # 清除现有波长
+            if current_wl_count > 0:
+                # 只保留一个波长，然后使用它
+                while wavelengths.NumberOfWavelengths > 1:
+                    wavelengths.RemoveWavelength(wavelengths.NumberOfWavelengths)
+                
+                # 使用第一个波长
+                first_wl = wavelengths.GetWavelength(1)
+                
+                # 添加新的波长
+                if weights is None:
+                    weights = [1.0] * len(wavelength_list)
+                    
+                for i, wl in enumerate(wavelength_list):
+                    wl_microns = wl / 1000.0  # 转换为微米
+                    weight = weights[i] if i < len(weights) else 1.0
+                    
+                    # 如果是第一个波长，修改现有波长而不是添加
+                    if i == 0:
+                        first_wl.Wavelength = wl_microns
+                        first_wl.Weight = weight
+                    else:
+                        self.add_wavelength(wl_microns, weight)
+            else:
+                # 没有现有波长，直接添加新的
+                if weights is None:
+                    weights = [1.0] * len(wavelength_list)
+                    
+                for i, wl in enumerate(wavelength_list):
+                    wl_microns = wl / 1000.0  # 转换为微米
+                    weight = weights[i] if i < len(weights) else 1.0
+                    self.add_wavelength(wl_microns, weight)
+                
+            # 设置主波长（波长数据可能没有SetPrimary方法，尝试使用对应属性）
+            if len(wavelength_list) > 0:
+                try:
+                    # 尝试使用SetPrimary方法
+                    wavelengths.SetPrimary(1)
+                except:
+                    try:
+                        # 尝试设置Primary属性
+                        wavelengths.Primary = 1
+                    except:
+                        # 如果都失败，只记录警告
+                        logger.warning("无法设置主波长")
+                
+            logger.info(f"设置了 {len(wavelength_list)} 个波长")
+            return True
+            
+        except Exception as e:
+            logger.error(f"设置波长失败: {str(e)}")
+            return False
+    
     def get_wavelength_info(self) -> List[dict]:
         """
         获取波长信息
@@ -243,6 +310,63 @@ class SystemParameterManager:
         except Exception as e:
             logger.error(f"添加视场点失败: {str(e)}")
             raise
+    
+    def set_field(self, field_type: str, field_points: List[Tuple[float, float]], weights: List[float] = None):
+        """
+        设置系统视场
+        
+        Args:
+            field_type: 视场类型 ('angle', 'object_height', 'paraxial_image_height', 'real_image_height')
+            field_points: 视场点列表，每个点是一个 (x, y) 坐标元组
+            weights: 各视场点的权重列表，默认每个点权重为1.0
+        """
+        try:
+            # 设置视场类型
+            self.set_field_type(field_type)
+            
+            # 清除所有现有视场点
+            fields = self.system_data.Fields
+            
+            # 先记录当前视场数量
+            current_field_count = fields.NumberOfFields
+            
+            # 清除现有视场
+            if current_field_count > 0:
+                # 只保留一个视场点，然后使用它
+                while fields.NumberOfFields > 1:
+                    fields.RemoveField(fields.NumberOfFields)
+                
+                # 使用第一个视场点
+                first_field = fields.GetField(1)
+                
+                # 添加新的视场点
+                if weights is None:
+                    weights = [1.0] * len(field_points)
+                    
+                for i, (x, y) in enumerate(field_points):
+                    weight = weights[i] if i < len(weights) else 1.0
+                    # 如果是第一个点，修改现有点而不是添加
+                    if i == 0:
+                        first_field.X = x
+                        first_field.Y = y
+                        first_field.Weight = weight
+                    else:
+                        self.add_field(x, y, weight)
+            else:
+                # 没有现有视场点，直接添加新的
+                if weights is None:
+                    weights = [1.0] * len(field_points)
+                    
+                for i, (x, y) in enumerate(field_points):
+                    weight = weights[i] if i < len(weights) else 1.0
+                    self.add_field(x, y, weight)
+                
+            logger.info(f"设置了 {len(field_points)} 个视场点")
+            return True
+            
+        except Exception as e:
+            logger.error(f"设置视场失败: {str(e)}")
+            return False
     
     def get_field_info(self) -> List[dict]:
         """

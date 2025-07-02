@@ -21,6 +21,7 @@ from .zosapi_plotting import plot_spots, plot_rayfan, plot_mtf, plot_field_curva
 from .zosapi_utils import ZOSDataProcessor
 from .zosapi_layout import ZOSLayoutAnalyzer
 from .zosapi_system import SystemParameterManager, create_system_parameter_manager
+from .zosapi_lde import LensDesignManager, create_lens_design_manager
 
 __version__ = "1.0.0"
 __author__ = "allin-love"
@@ -32,10 +33,12 @@ __all__ = [
     "ZOSDataProcessor",
     "ZOSLayoutAnalyzer",
     "SystemParameterManager",
+    "LensDesignManager",
     
     # 便捷函数
     "create_zosapi_manager",
     "create_system_parameter_manager",
+    "create_lens_design_manager",
     
     # 绘图函数
     "plot_spots", 
