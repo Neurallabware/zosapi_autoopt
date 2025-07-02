@@ -21,7 +21,6 @@ from .zosapi_plotting import plot_spots, plot_rayfan, plot_mtf, plot_field_curva
 from .zosapi_utils import ZOSDataProcessor
 from .zosapi_layout import ZOSLayoutAnalyzer
 from .zosapi_system import SystemParameterManager, create_system_parameter_manager
-from .system_presets import apply_system_preset, list_available_presets, SYSTEM_PRESETS
 
 __version__ = "1.0.0"
 __author__ = "allin-love"
@@ -37,8 +36,6 @@ __all__ = [
     # 便捷函数
     "create_zosapi_manager",
     "create_system_parameter_manager",
-    "apply_system_preset",
-    "list_available_presets",
     
     # 绘图函数
     "plot_spots", 
@@ -47,9 +44,6 @@ __all__ = [
     "plot_field_curvature_distortion",
     "analyze_and_plot_system",
     
-    # 配置常量
-    "SYSTEM_PRESETS",
-
 ]
 
 def get_version():

@@ -20,24 +20,22 @@ zos = create_zosapi_manager()
 zos.TheSystem.New(False)  # 创建新系统
 sys_param = create_system_parameter_manager(zos)
 
-# 快速设置系统参数
-sys_param.setup_simple_system(
-    aperture_value=40.0,
-    field_angles=[(0, 0), (0, 10), (0, 20)],
-    wavelength_preset='visible'
-)
-```
+# 设置孔径
+sys_param.set_aperture('entrance_pupil_diameter', 40.0)
 
-### 使用预设配置
+# 设置波长
+sys_param.set_wavelength_preset('d_0p587')
+sys_param.add_wavelength(0.486, 1.0)
+sys_param.add_wavelength(0.656, 1.0)
 
-```python
-from zosapi_autoopt import apply_system_preset, list_available_presets
+# 设置视场
+sys_param.set_field_type('angle')
+sys_param.add_field(0, 0, 1.0)
+sys_param.add_field(0, 10, 1.0)
+sys_param.add_field(0, 20, 1.0)
 
-# 查看可用预设
-list_available_presets()
-
-# 应用预设配置
-apply_system_preset(sys_param, 'camera_lens_standard')
+# 设置环境参数
+sys_param.set_environment(20.0, 1.0, True)
 ```
 
 ## 详细功能
@@ -108,27 +106,6 @@ sys_param.set_environment(
     pressure=1.0,      # 压力（大气压）
     adjust_index=True  # 是否调整折射率
 )
-```
-
-## 预设配置
-
-系统提供了多种预设配置，适用于不同的应用场景：
-
-### 系统预设
-- `camera_lens_standard`: 标准相机镜头
-- `camera_lens_wide`: 广角相机镜头
-- `telescope_primary`: 天文望远镜主镜
-- `microscope_objective`: 显微镜物镜
-- `ir_system`: 红外系统
-
-### 使用示例
-
-```python
-# 设置为标准相机镜头配置
-apply_system_preset(sys_param, 'camera_lens_standard')
-
-# 设置为显微镜物镜配置
-apply_system_preset(sys_param, 'microscope_objective')
 ```
 
 ## 获取系统信息
