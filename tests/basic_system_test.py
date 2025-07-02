@@ -3,7 +3,6 @@
 Author: allin-love
 Date: 2025-07-03
 """
-
 import os
 import sys
 
@@ -15,10 +14,7 @@ sys.path.insert(0, parent_dir)
 from zosapi_autoopt import create_zosapi_manager, create_system_parameter_manager
 
 
-def main():
-    """主函数：只测试基础参数设置功能"""
-    print("=== 基础系统参数设置测试 ===\n")
-    
+def main():   
     # 创建输出目录
     output_dir = os.path.join(parent_dir, "output", "basic_test")
     os.makedirs(output_dir, exist_ok=True)
@@ -28,14 +24,11 @@ def main():
     zos = create_zosapi_manager()    
 
     # 创建基础系统
-    print("2. 创建基础系统...")
     zos.TheSystem.New(False)
-    print("✓ 新系统创建成功")
         
     # 创建系统参数管理器
-    print("3. 创建系统参数管理器...")
     sys_param = create_system_parameter_manager(zos)
-    print("✓ 系统参数管理器创建成功")
+
     # 基础参数设置
     sys_param.set_aperture('entrance_pupil_diameter', 50.0)
     print("入瞳直径设置为 50.0 mm")
@@ -47,7 +40,6 @@ def main():
     print("设置F, d, C三条谱线")
 
     # 设置视场
-    print("6. 设置视场...")
     sys_param.set_field_type('angle')
     sys_param.clear_fields()  # 清除默认视场
     sys_param.add_field(0, 0, 1.0)    # 轴上视场
@@ -56,8 +48,8 @@ def main():
     print("设置三个视场点: 0°, 10°, 20°")
     
     # 设置环境参数
-    sys_param.set_environment(20.0, 1.0, True)
-    print("设置标准环境: 20°C, 1atm")
+    # sys_param.set_environment(20.0, 1.0, True)
+    # print("设置标准环境: 20°C, 1atm")
 
     # 获取系统摘要
     summary = sys_param.get_system_summary()
@@ -76,7 +68,6 @@ def main():
         size_kb = os.path.getsize(file_path) / 1024
         print(f"  文件大小: {size_kb:.1f} KB")
         print(f"  文件位置: {output_dir}")
-        print("\n✅ 测试成功完成！你可以在OpticStudio中打开此文件验证配置。")
         
     # 清理资源
     del zos
