@@ -17,7 +17,7 @@ Version: 1.0.0
 from .zosapi_core import ZOSAPIManager, create_zosapi_manager
 from .zosapi_analysis import ZOSAnalyzer, BatchAnalyzer
 # 由于没有ZOSPlotter类，因此从plot_spots开始导入重要的绘图函数
-from .zosapi_plotting import plot_spots, plot_rayfan, plot_mtf, plot_field_curvature_distortion, analyze_and_plot_system
+from .zosapi_plotting import ZOSPlotter
 from .zosapi_utils import ZOSDataProcessor
 from .zosapi_layout import ZOSLayoutAnalyzer
 from .zosapi_system import SystemParameterManager, create_system_parameter_manager

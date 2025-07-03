@@ -488,14 +488,13 @@ class LensDesignManager:
     
     # === 变量与优化设置 ===
     
-    def set_variable(self, surface_pos: int, param_name: str, current: float = None, status: bool = True) -> bool:
+    def set_variable(self, surface_pos: int, param_name: str, status: bool = True) -> bool:
         """
-        将表面参数设置为变量
-        
+        将单个表面参数设置为变量（简化版）。
+
         Args:
             surface_pos: 表面位置
             param_name: 参数名称，支持 'radius', 'thickness', 'conic' 等
-            current: 当前值（可选）
             status: 变量状态，True表示启用，False表示禁用
             
         Returns:
@@ -503,46 +502,134 @@ class LensDesignManager:
         """
         try:
             surface = self.get_surface(surface_pos)
-            
-            # 参数列与变量映射
             param_column_map = {
                 'radius': self.ZOSAPI.Editors.LDE.SurfaceColumn.Radius,
                 'thickness': self.ZOSAPI.Editors.LDE.SurfaceColumn.Thickness,
                 'conic': self.ZOSAPI.Editors.LDE.SurfaceColumn.Conic,
-                'semi_diameter': self.ZOSAPI.Editors.LDE.SurfaceColumn.SemiDiameter
             }
-            
             if param_name not in param_column_map:
                 raise ValueError(f"不支持的参数名称: {param_name}")
             
-            # 如果提供了当前值，先设置当前值
-            cell_type = param_column_map[param_name]
-            cell = surface.GetCellAt(cell_type)
-            if current is not None:
-                cell.DoubleValue = current
-                
-            # 使用辅助方法设置为变量
-            cell, is_var, solve_type = self.set_cell_as_variable(
-                surface, 
-                cell_type, 
-                f"表面 {surface_pos} 的 {param_name}"
-            )
+            column_type = param_column_map[param_name]
+            cell, is_var, _ = self.set_cell_as_variable(surface, column_type, f"表面 {surface_pos} 的 {param_name}")
             
-            # 设置变量状态
+            # 设置变量状态 (启用/禁用)
             if is_var and status is not None:
                 solver_data = cell.GetSolveData()
-                if solver_data is not None:
-                    solver_data.Status = status
-                    cell.SetSolveData(solver_data)
+                if solver_data:
                     solver_data.Status = status
                     cell.SetSolveData(solver_data)
             
             return is_var
-            
         except Exception as e:
             logger.error(f"设置变量失败: {str(e)}")
             return False
+        
+    def set_cell_as_variable(self, surface: Any, column_type: Any, description: str = "") -> tuple:
+        """
+        将表面的单元格设置为变量 (简化版)。
+        我们只使用最稳定可靠的 MakeSolveVariable 方法。
+        """
+        try:
+            cell = surface.GetCellAt(column_type)
+            cell.MakeSolveVariable()
+            solver_data = cell.GetSolveData()
+            solve_type = solver_data.Type if solver_data else None
+            logger.info(f"成功将 {description} 设置为变量")
+            return cell, True, solve_type
+        except Exception as e:
+            logger.error(f"将 {description} 设置为变量失败: {str(e)}")
+            return None, False, None
+    def _set_all_parameters_as_variables(self, param_name: str, start_surface: int = 1, end_surface: int = None, 
+                                        exclude_surfaces: List[int] = None, status: bool = True) -> bool:
+        """
+        【私有辅助方法】统一处理所有批量设置变量的逻辑。
+        """
+        surface_count = self.LDE.NumberOfSurfaces
+        if end_surface is None or end_surface >= surface_count:
+            end_surface = surface_count - 1 # 不处理像面
+        
+        if exclude_surfaces is None:
+            exclude_surfaces = []
+
+        success_count = 0
+        for i in range(start_surface, end_surface + 1):
+            if i not in exclude_surfaces:
+                try:
+                    if self.set_variable(i, param_name, status=status):
+                        success_count += 1
+                except Exception as e:
+                    # 某些表面可能没有特定参数（如非球面的conic），这是正常情况，记录为debug信息
+                    logger.debug(f"为表面 {i} 设置 {param_name} 变量时跳过: {str(e)}")
+        
+        logger.info(f"完成了对参数 '{param_name}' 的批量变量设置，共成功设置 {success_count} 个表面。")
+        return success_count > 0
+
+    def set_all_radii_as_variables(self, start_surface: int = 1, end_surface: int = None, 
+                                  exclude_surfaces: List[int] = None, status: bool = True) -> bool:
+        """批量设置所有表面的曲率半径为变量。"""
+        logger.info("开始批量设置曲率半径为变量...")
+        # 尝试使用官方工具，如果失败则回退到手动循环
+        try:
+            tools = self.TheSystem.Tools
+            tools.SetAllRadiiVariable()
+            logger.info("已使用官方工具 'SetAllRadiiVariable'。")
+            return True
+        except Exception:
+            logger.warning("官方工具 'SetAllRadiiVariable' 不可用或执行失败，将回退到逐个表面设置的方法。")
+            return self._set_all_parameters_as_variables('radius', start_surface, end_surface, exclude_surfaces, status)
+
+    def set_all_thickness_as_variables(self, start_surface: int = 1, end_surface: int = None, 
+                                      exclude_surfaces: List[int] = None, status: bool = True) -> bool:
+        """批量设置所有表面的厚度为变量。"""
+        logger.info("开始批量设置厚度为变量...")
+        return self._set_all_parameters_as_variables('thickness', start_surface, end_surface, exclude_surfaces, status)
+
+    def set_all_conics_as_variables(self, start_surface: int = 1, end_surface: int = None, 
+                                   exclude_surfaces: List[int] = None, status: bool = True) -> bool:
+        """批量设置所有表面的锥面系数为变量。"""
+        logger.info("开始批量设置锥面系数为变量...")
+        return self._set_all_parameters_as_variables('conic', start_surface, end_surface, exclude_surfaces, status)
     
+    def set_all_aspheric_as_variables(self, start_surface: int = 1, end_surface: int = None, 
+                                       exclude_surfaces: List[int] = None, order: int = 4,
+                                       status: bool = True) -> bool:
+        """
+        批量设置所有表面的非球面各阶系数为变量 (已优化)。
+        """
+        logger.info(f"开始批量设置非球面系数为变量 (最高到 {order*2+2} 阶)...")
+        surface_count = self.LDE.NumberOfSurfaces
+        if end_surface is None or end_surface >= surface_count:
+            end_surface = surface_count - 1
+
+        if exclude_surfaces is None:
+            exclude_surfaces = []
+        
+        success_count = 0
+        for i in range(start_surface, end_surface + 1):
+            if i in exclude_surfaces:
+                continue
+            
+            surface = self.get_surface(i)
+            # 循环设置4、6、8...阶系数
+            for j in range(order):
+                try:
+                    param_column = self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1 + j
+                    # 直接尝试将单元格设为变量
+                    _, is_var, _ = self.set_cell_as_variable(surface, param_column, f"表面 {i} 的非球面系数 P{j+1}")
+                    if is_var:
+                        success_count += 1
+                except Exception:
+                    # 如果失败，很可能因为这个面不是非球面或没有这么多参数，这是正常情况。
+                    # 我们只需要跳出对当前面的循环即可。
+                    logger.debug(f"无法为表面 {i} 设置第 {j+1} 个非球面系数，已跳过此表面。")
+                    break 
+        
+        logger.info(f"完成了非球面系数的批量变量设置，共成功设置 {success_count} 个参数。")
+        return success_count > 0    
+
+
+
     def clear_variable(self, surface_pos: int, param_name: str) -> bool:
         """
         清除变量设置
@@ -578,388 +665,30 @@ class LensDesignManager:
         except Exception as e:
             logger.error(f"清除变量失败: {str(e)}")
             return False
-    
-    # === 批量设置变量 ===
-    
-    def set_all_thickness_as_variables(self, start_surface: int = 1, end_surface: int = None, 
-                                  exclude_surfaces: List[int] = None, status: bool = True) -> bool:
-        """
-        批量设置所有表面的厚度为变量
         
-        Args:
-            start_surface: 起始表面编号
-            end_surface: 结束表面编号（默认为最后一个表面）
-            exclude_surfaces: 排除的表面列表
-            status: 变量状态，True表示启用，False表示禁用
-            
+    def clear_all_variables(self) -> bool:
+        """
+        一键清除当前系统中所有表面上的所有优化变量。
+
+        这个方法是对ZOS-API原生 "Remove All Variables" 工具的直接封装，
+        是准备新一轮优化或清理设计时的常用功能。
+
         Returns:
-            是否设置成功
+            bool: 是否成功清除所有变量
         """
         try:
-            # 尝试使用Zemax官方的工具方法
-            try:
-                tools = self.TheSystem.Tools
-                if hasattr(tools, "SetAllThicknessesVariable"):
-                    # 如果有排除表面，先清除所有变量，然后设置需要的表面
-                    if exclude_surfaces and len(exclude_surfaces) > 0:
-                        for i in range(start_surface, end_surface + 1):
-                            if i not in exclude_surfaces:
-                                surface = self.get_surface(i)
-                                # 使用辅助方法设置变量
-                                cell, is_var, _ = self.set_cell_as_variable(
-                                    surface, 
-                                    self.ZOSAPI.Editors.LDE.SurfaceColumn.Thickness, 
-                                    f"表面 {i} 的厚度"
-                                )
-                                # 设置变量状态
-                                if is_var and status is not None:
-                                    solver_data = cell.GetSolveData()
-                                    if solver_data is not None:
-                                        solver_data.Status = status
-                                        cell.SetSolveData(solver_data)
-                        return True
-                    else:
-                        # 没有排除表面，直接使用官方工具
-                        tools.SetAllThicknessesVariable()
-                        return True
-            except Exception as e:
-                logger.warning(f"使用官方工具设置厚度变量失败: {str(e)}")
-            
-            # 如果官方工具失败，则使用逐个表面设置的方法
-            # 获取系统的表面数量
-            surface_count = self.LDE.NumberOfSurfaces
-            
-            # 如果未指定结束表面，则使用最后一个表面
-            if end_surface is None or end_surface > surface_count:
-                end_surface = surface_count
-            
-            # 默认排除表面为空列表
-            if exclude_surfaces is None:
-                exclude_surfaces = []
-            
-            success = True
-            
-            # 遍历表面设置厚度为变量
-            for i in range(start_surface, end_surface + 1):
-                if i not in exclude_surfaces:
-                    try:
-                        result = self.set_variable(i, 'thickness', status=status)
-                        success = success and result
-                    except Exception as e:
-                        logger.error(f"将表面 {i} 的厚度设置为变量时出错: {str(e)}")
-                        success = False
-            
-            return success
-            
+            tools = self.TheSystem.Tools
+            if hasattr(tools, 'RemoveAllVariables'):
+                tools.RemoveAllVariables()
+                logger.info("已成功清除系统中所有的优化变量。")
+                return True
+            else:
+                logger.error("当前ZOS-API版本不支持 'RemoveAllVariables' 工具。")
+                return False
         except Exception as e:
-            logger.error(f"批量设置厚度变量失败: {str(e)}")
+            logger.error(f"清除所有变量时发生错误: {str(e)}")
             return False
-    
-    def set_all_radii_as_variables(self, start_surface: int = 1, end_surface: int = None, 
-                                exclude_surfaces: List[int] = None, status: bool = True) -> bool:
-        """
-        批量设置所有表面的曲率半径为变量
-        
-        Args:
-            start_surface: 起始表面编号
-            end_surface: 结束表面编号（默认为最后一个表面）
-            exclude_surfaces: 排除的表面列表
-            status: 变量状态，True表示启用，False表示禁用
-            
-        Returns:
-            是否设置成功
-        """
-        try:
-            # 尝试使用Zemax官方的工具方法
-            try:
-                tools = self.TheSystem.Tools
-                if hasattr(tools, "SetAllRadiiVariable"):
-                    # 如果有排除表面，先清除所有变量，然后设置需要的表面
-                    if exclude_surfaces and len(exclude_surfaces) > 0:
-                        tools.RemoveAllVariables()  # 清除所有变量
-                        for i in range(start_surface, end_surface + 1):
-                            if i not in exclude_surfaces:
-                                surface = self.get_surface(i)
-                                # 使用辅助方法设置变量
-                                cell, is_var, _ = self.set_cell_as_variable(
-                                    surface, 
-                                    self.ZOSAPI.Editors.LDE.SurfaceColumn.Radius, 
-                                    f"表面 {i} 的曲率半径"
-                                )
-                                # 设置变量状态
-                                if is_var and status is not None:
-                                    solver_data = cell.GetSolveData()
-                                    if solver_data is not None:
-                                        solver_data.Status = status
-                                        cell.SetSolveData(solver_data)
-                        return True
-                    else:
-                        # 没有排除表面，直接使用官方工具
-                        tools.SetAllRadiiVariable()
-                        return True
-            except Exception as e:
-                logger.warning(f"使用官方工具设置曲率半径变量失败: {str(e)}")
-            
-            # 如果官方工具失败，则使用逐个表面设置的方法
-            # 获取系统的表面数量
-            surface_count = self.LDE.NumberOfSurfaces
-            
-            # 如果未指定结束表面，则使用最后一个表面
-            if end_surface is None or end_surface > surface_count:
-                end_surface = surface_count
-            
-            # 默认排除表面为空列表
-            if exclude_surfaces is None:
-                exclude_surfaces = []
-            
-            success = True
-            
-            # 遍历表面设置曲率半径为变量
-            for i in range(start_surface, end_surface + 1):
-                if i not in exclude_surfaces:
-                    try:
-                        result = self.set_variable(i, 'radius', status=status)
-                        success = success and result
-                    except Exception as e:
-                        logger.error(f"将表面 {i} 的曲率半径设置为变量时出错: {str(e)}")
-                        success = False
-            
-            return success
-            
-        except Exception as e:
-            logger.error(f"批量设置曲率半径变量失败: {str(e)}")
-            return False
-    
-    def set_all_conics_as_variables(self, start_surface: int = 1, end_surface: int = None, 
-                                 exclude_surfaces: List[int] = None, 
-                                 status: bool = True) -> bool:
-        """
-        批量设置所有表面的锥面系数为变量
-        
-        Args:
-            start_surface: 起始表面编号
-            end_surface: 结束表面编号（默认为最后一个表面）
-            exclude_surfaces: 排除的表面列表
-            status: 变量状态，True表示启用，False表示禁用
-            
-        Returns:
-            是否设置成功
-        """
-        try:
-            # 获取系统的表面数量
-            surface_count = self.LDE.NumberOfSurfaces
-            
-            # 如果未指定结束表面，则使用最后一个表面
-            if end_surface is None or end_surface > surface_count:
-                end_surface = surface_count
-            
-            # 默认排除表面为空列表
-            if exclude_surfaces is None:
-                exclude_surfaces = []
-            
-            success = True
-            
-            # 遍历表面设置锥面系数为变量
-            for i in range(start_surface, end_surface + 1):
-                if i not in exclude_surfaces:
-                    try:
-                        # 获取表面
-                        surface = self.get_surface(i)
-                        
-                        # 获取当前锥面系数值
-                        current_value = 0.0
-                        try:
-                            # 尝试直接获取锥面系数
-                            current_value = surface.Conic
-                        except:
-                            # 如果无法直接获取锥面系数，尝试从单元格获取
-                            try:
-                                conic_cell = surface.GetCellAt(self.ZOSAPI.Editors.LDE.SurfaceColumn.Conic)
-                                if hasattr(conic_cell, "DoubleValue"):
-                                    current_value = conic_cell.DoubleValue
-                                else:
-                                    try:
-                                        current_value = float(conic_cell.Value)
-                                    except:
-                                        current_value = 0.0
-                            except:
-                                current_value = 0.0
-                        
-                        # 直接从单元格设置变量
-                        try:
-                            conic_cell = surface.GetCellAt(self.ZOSAPI.Editors.LDE.SurfaceColumn.Conic)
-                            
-                            # 确保单元格有值
-                            conic_cell.Value = str(current_value)
-                            
-                            # 使用辅助方法设置变量
-                            cell, is_var, _ = self.set_cell_as_variable(
-                                surface, 
-                                self.ZOSAPI.Editors.LDE.SurfaceColumn.Conic, 
-                                f"表面 {i} 的锥面系数"
-                            )
-                            
-                            # 设置变量状态
-                            if is_var and status is not None:
-                                solver_data = cell.GetSolveData()
-                                if solver_data is not None:
-                                    solver_data.Status = status
-                                    cell.SetSolveData(solver_data)
-                        except Exception as e:
-                            logger.error(f"设置表面 {i} 的锥面系数变量失败: {str(e)}")
-                            # 尝试使用备用方法
-                            try:
-                                result = self.set_variable(i, 'conic', current=current_value, status=status)
-                                success = success and result
-                            except Exception as e2:
-                                logger.error(f"备用方法设置表面 {i} 的锥面系数变量失败: {str(e2)}")
-                                success = False
-                    except Exception as e:
-                        logger.error(f"将表面 {i} 的锥面系数设置为变量时出错: {str(e)}")
-                        success = False
-            
-            return success
-            
-        except Exception as e:
-            logger.error(f"批量设置锥面系数变量失败: {str(e)}")
-            return False
-    
-    def set_all_aspheric_as_variables(self, start_surface: int = 1, end_surface: int = None, 
-                                   exclude_surfaces: List[int] = None, order: int = 4,
-                                   status: bool = True) -> bool:
-        """
-        批量设置所有表面的非球面各阶系数为变量
-        
-        Args:
-            start_surface: 起始表面编号
-            end_surface: 结束表面编号（默认为最后一个表面）
-            exclude_surfaces: 排除的表面列表
-            order: 设置到第几阶系数（2为4阶，3为6阶，4为8阶，5为10阶...）
-            status: 变量状态，True表示启用，False表示禁用
-            
-        Returns:
-            是否设置成功
-        """
-        try:
-            # 获取系统的表面数量
-            surface_count = self.LDE.NumberOfSurfaces
-            
-            # 如果未指定结束表面，则使用最后一个表面
-            if end_surface is None or end_surface > surface_count:
-                end_surface = surface_count
-            
-            # 默认排除表面为空列表
-            if exclude_surfaces is None:
-                exclude_surfaces = []
-            
-            success = True
-            
-            # 遍历表面设置非球面系数为变量
-            for i in range(start_surface, end_surface + 1):
-                if i not in exclude_surfaces:
-                    try:
-                        # 获取表面
-                        surface = self.get_surface(i)
-                        
-                        # 尝试识别是否为非球面表面
-                        is_aspheric = False
-                        
-                        # 方法1: 通过表面类型判断
-                        try:
-                            if hasattr(surface, "SurfaceType"):
-                                surface_type = str(surface.SurfaceType).lower()
-                                is_aspheric = ('aspheric' in surface_type or 'even' in surface_type)
-                        except:
-                            pass
-                        
-                        # 方法2: 通过单元格类型判断
-                        if not is_aspheric:
-                            try:
-                                type_cell = surface.GetCellAt(self.ZOSAPI.Editors.LDE.SurfaceColumn.Type)
-                                if type_cell:
-                                    type_value = str(type_cell.Value).lower()
-                                    is_aspheric = ('aspheric' in type_value or 'even' in type_value)
-                            except:
-                                pass
-                        
-                        # 方法3: 检查是否有非零非球面系数
-                        if not is_aspheric:
-                            try:
-                                # 检查前几个非球面系数
-                                for j in range(4):
-                                    param_cell = surface.GetCellAt(self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1 + j)
-                                    if param_cell:
-                                        try:
-                                            param_value = param_cell.DoubleValue
-                                        except:
-                                            try:
-                                                param_value = float(param_cell.Value)
-                                            except:
-                                                param_value = 0.0
-                                                
-                                        if abs(param_value) > 1e-16:
-                                            is_aspheric = True
-                                            break
-                            except:
-                                pass
-                        
-                        # 如果不是非球面表面，可以跳过或尝试设置为非球面
-                        if not is_aspheric:
-                            logger.warning(f"表面 {i} 可能不是非球面表面，但仍将尝试设置非球面系数")
-                            try:
-                                # 尝试将表面设置为非球面类型
-                                self.set_surface_type(i, 'aspheric')
-                            except:
-                                logger.warning(f"无法将表面 {i} 设置为非球面类型，但仍将尝试设置非球面系数")
-                        
-                        # 设置各阶非球面系数为变量
-                        for j in range(order):
-                            try:
-                                # 获取当前系数单元格
-                                param_cell = surface.GetCellAt(self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1 + j)
-                                
-                                # 获取当前值
-                                current_value = 0.0
-                                try:
-                                    if hasattr(param_cell, "DoubleValue"):
-                                        current_value = param_cell.DoubleValue
-                                    else:
-                                        try:
-                                            current_value = float(param_cell.Value)
-                                        except:
-                                            current_value = 0.0
-                                except:
-                                    current_value = 0.0
-                                
-                                # 确保单元格有值
-                                param_cell.Value = str(current_value)
-                                
-                                # 使用辅助方法设置变量
-                                cell, is_var, _ = self.set_cell_as_variable(
-                                    surface, 
-                                    self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1 + j, 
-                                    f"表面 {i} 的非球面{(j+1)*2+2}阶系数"
-                                )
-                                
-                                # 设置变量状态
-                                if is_var and status is not None:
-                                    solver_data = cell.GetSolveData()
-                                    if solver_data is not None:
-                                        solver_data.Status = status
-                                        cell.SetSolveData(solver_data)
-                            except Exception as e:
-                                logger.error(f"将表面 {i} 的非球面{(j+1)*2+2}阶系数设置为变量时出错: {str(e)}")
-                                success = False
-                    except Exception as e:
-                        logger.error(f"处理表面 {i} 的非球面系数时出错: {str(e)}")
-                        success = False
-            
-            return success
-            
-        except Exception as e:
-            logger.error(f"批量设置非球面系数变量失败: {str(e)}")
-            return False
-    
+             
 
     def set_surface_parameters(self, surface_pos: int, **kwargs) -> bool:
         """
@@ -1027,7 +756,7 @@ class LensDesignManager:
             logger.error(f"设置表面注释失败: {str(e)}")
             return False
 
-    def set_cell_as_variable(self, surface, column_type, description="") -> tuple:
+    # def set_cell_as_variable(self, surface, column_type, description="") -> tuple:
         """
         将表面的单元格设置为变量
         

@@ -30,6 +30,7 @@ def main():
         # --- 步骤 2: 将关键参数设置为变量 ---
         logging.info("正在设置优化变量...")
         lde_manager = LensDesignManager(zos_manager)
+        lde_manager.clear_all_variables()  # 清除现有变量设置
         for surf_index in [1, 2, 4, 5]:
             lde_manager.set_variable(surf_index, 'radius')
         for surf_index in [1, 3, 5]:
@@ -39,7 +40,7 @@ def main():
         # --- 步骤 3: 建立评价函数 ---
         logging.info("正在构建评价函数...")
         mf_editor = MeritFunctionEditor(zos_manager)
-        mf_editor.use_optimization_wizard('rms_spot', clear_existing=True)
+        mf_editor.use_optimization_wizard('rms_spot', clear_existing=True,use_glass_constraints=False)
         logging.info("优化向导已成功生成评价函数。")
         op = mf_editor.Operands
         

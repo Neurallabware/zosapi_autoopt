@@ -30,7 +30,7 @@ def main():
     """Main test function"""
     # 导入模块
     from zosapi_autoopt.zosapi_core import ZOSAPIManager
-    from zosapi_autoopt.zosapi_plotting import analyze_and_plot_system
+    from zosapi_autoopt.zosapi_plotting import ZOSPlotter
     from zosapi_autoopt.zosapi_layout import ZOSLayoutAnalyzer
 
     # Connect to Zemax
@@ -44,8 +44,9 @@ def main():
         
     # Complete analysis
     print("Running analysis...")
-    saved_files = analyze_and_plot_system(zos_manager, output_dir="output")
-    
+    plotter = ZOSPlotter(zos_manager)
+    saved_files = plotter.analyze_and_plot_system(output_dir="output")
+
     for analysis_type, file_path in saved_files.items():
         print(f"  - {analysis_type}: {Path(file_path).name}")
     
