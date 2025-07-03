@@ -16,9 +16,7 @@ from zosapi_autoopt.zosapi_layout import ZOSLayoutAnalyzer
 
 def test_png_export():
     """测试PNG格式Layout导出"""
-    print("=== 测试PNG Layout导出 ===")
     
-
     # 连接到ZOSAPI并加载文件
     zos_manager = ZOSAPIManager()
     sample_file = Path.cwd() / "zmx_data" / "Double Gauss 28 degree field.zos"
@@ -35,6 +33,7 @@ def test_png_export():
     
     layout_analyzer = ZOSLayoutAnalyzer(zos_manager)
     layout_analyzer.export_cross_section(output_path)
+    
     # layout_analyzer.export_3d_viewer(output_path)
     # layout_analyzer.export_shaded_model(output_path)
 

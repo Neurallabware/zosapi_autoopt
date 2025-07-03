@@ -10,7 +10,6 @@ from typing import List, Dict, Optional, Union, Any, Tuple
 from .config import LOG_SETTINGS
 
 # 配置日志
-log_level = getattr(logging, LOG_SETTINGS.get("level", "WARNING").upper())
 logger = logging.getLogger(__name__)
 
 
@@ -219,22 +218,34 @@ class LensDesignManager:
         try:
             surface = self.get_surface(surface_pos)
             
-            # 映射表面类型
-            surface_type_map = {
-                'standard': self.ZOSAPI.Editors.LDE.SurfaceType.Standard,
-                'conic': self.ZOSAPI.Editors.LDE.SurfaceType.EvenAspheric,
-                'aspheric': self.ZOSAPI.Editors.LDE.SurfaceType.EvenAspheric,
-                'toroidal': self.ZOSAPI.Editors.LDE.SurfaceType.Toroidal,
-                'coordinate_break': self.ZOSAPI.Editors.LDE.SurfaceType.CoordinateBreak,
-                'paraxial': self.ZOSAPI.Editors.LDE.SurfaceType.Paraxial,
-                'grid_sag': self.ZOSAPI.Editors.LDE.SurfaceType.GridSag,
-                'zernike': self.ZOSAPI.Editors.LDE.SurfaceType.ZernikeSag
+            # 映射表面类型 - 使用动态获取方式适应不同版本
+            surface_type_mapping = {
+                'standard': 'Standard',
+                'conic': 'EvenAspheric',
+                'aspheric': 'EvenAspheric',
+                'toroidal': 'Toroidal',
+                'coordinate_break': 'CoordinateBreak',
+                'paraxial': 'Paraxial',
+                'grid_sag': 'GridSag',
+                'zernike': 'ZernikeSag'  # 某些版本可能没有此类型
             }
             
-            if surface_type not in surface_type_map:
+            if surface_type not in surface_type_mapping:
                 raise ValueError(f"不支持的表面类型: {surface_type}")
             
-            type_setting = surface.GetSurfaceTypeSettings(surface_type_map[surface_type])
+            # 动态获取类型对象，如果不存在则抛出友好的错误
+            try:
+                type_name = surface_type_mapping[surface_type]
+                type_value = getattr(self.ZOSAPI.Editors.LDE.SurfaceType, type_name)
+            except AttributeError:
+                # 尝试更通用的方式获取类型
+                if surface_type == 'aspheric' or surface_type == 'conic':
+                    # 几乎所有版本都支持EvenAspheric
+                    type_value = getattr(self.ZOSAPI.Editors.LDE.SurfaceType, 'EvenAspheric')
+                else:
+                    raise ValueError(f"您的Zemax版本不支持表面类型: {type_name}")
+            
+            type_setting = surface.GetSurfaceTypeSettings(type_value)
             surface.ChangeType(type_setting)
             
             logger.info(f"设置表面 {surface_pos} 的类型为 {surface_type}")
@@ -313,7 +324,7 @@ class LensDesignManager:
         
         Args:
             surface_pos: 表面位置
-            aperture_type: 光阑类型 (circular, rectangular, float 等)
+            aperture_type: 光阑类型 (circular, rectangular, float, none 等)
             x_half_width: X方向半宽度
             y_half_width: Y方向半宽度
             
@@ -322,6 +333,33 @@ class LensDesignManager:
         """
         try:
             surface = self.get_surface(surface_pos)
+            
+            # 特殊处理"none"类型，这可能是要设置为光阑面
+            if aperture_type.lower() == "none":
+                # 尝试直接设置IsStop属性（官方推荐方式）
+                try:
+                    # 先找到并清除当前光阑面
+                    for i in range(1, self.get_system_info()['surfaces'] + 1):
+                        try:
+                            other_surface = self.get_surface(i)
+                            if (other_surface and hasattr(other_surface, 'IsStop') and 
+                                other_surface.IsStop and i != surface_pos):
+                                other_surface.IsStop = False
+                                logger.info(f"清除位置 {i} 的光阑面设置")
+                        except:
+                            pass
+                    
+                    # 设置新的光阑面
+                    surface.IsStop = True
+                    logger.info(f"使用IsStop=True设置表面 {surface_pos} 为光阑面")
+                    
+                    # 验证是否成功
+                    if hasattr(surface, 'IsStop') and surface.IsStop:
+                        return True
+                except Exception as e:
+                    logger.debug(f"使用IsStop设置光阑面失败: {str(e)}")
+            
+            # 正常的光阑类型处理
             aperture_data = surface.ApertureData
             
             # 映射光阑类型
@@ -332,22 +370,26 @@ class LensDesignManager:
                 'none': getattr(self.ZOSAPI.Editors.LDE.SurfaceApertureTypes, 'None')
             }
             
-            if aperture_type not in aperture_type_map:
+            if aperture_type.lower() not in aperture_type_map:
                 raise ValueError(f"不支持的光阑类型: {aperture_type}")
             
-            aperture_setting = aperture_data.CreateApertureTypeSettings(aperture_type_map[aperture_type])
+            # 创建适当的光阑设置
+            aperture_type_key = aperture_type.lower()
+            aperture_setting = aperture_data.CreateApertureTypeSettings(aperture_type_map[aperture_type_key])
             
             # 设置光阑参数
-            if aperture_type == 'circular':
+            if aperture_type_key == 'circular':
                 aperture_setting._S_CircularAperture.Radius = x_half_width
-            elif aperture_type == 'rectangular':
+            elif aperture_type_key == 'rectangular':
                 aperture_setting._S_RectangularAperture.XHalfWidth = x_half_width
                 aperture_setting._S_RectangularAperture.YHalfWidth = y_half_width
             
+            # 应用光阑设置
             aperture_data.ChangeApertureTypeSettings(aperture_setting)
             
             logger.info(f"设置表面 {surface_pos} 的光阑为 {aperture_type}")
             return True
+            
         except Exception as e:
             logger.error(f"设置光阑失败: {str(e)}")
             raise
@@ -366,10 +408,20 @@ class LensDesignManager:
         try:
             surface = self.get_surface(surface_pos)
             
-            # 检查表面类型是否为非球面
-            surface_type_name = str(surface.SurfaceType)
-            if "Aspheric" not in surface_type_name and "aspheric" not in surface_type_name:
-                raise ValueError(f"表面 {surface_pos} 不是非球面类型，当前类型: {surface_type_name}")
+            # 检查表面类型是否为非球面 - 使用更可靠的方式
+            is_aspheric = False
+            try:
+                # 方法1: 通过Cell获取类型
+                type_cell = surface.GetCellAt(self.ZOSAPI.Editors.LDE.SurfaceColumn.Type)
+                if type_cell:
+                    type_value = str(type_cell.Value).lower()
+                    is_aspheric = ('aspheric' in type_value or 'even' in type_value)
+            except:
+                # 如果无法获取类型，假设可以设置非球面系数
+                is_aspheric = True
+            
+            if not is_aspheric:
+                logger.warning(f"表面 {surface_pos} 可能不是非球面类型，但仍将尝试设置非球面系数")
             
             # 设置非球面系数
             for i, coef in enumerate(coefficients):
@@ -436,16 +488,13 @@ class LensDesignManager:
     
     # === 变量与优化设置 ===
     
-    def set_variable(self, surface_pos: int, param_name: str, min_value: float = None, 
-                  max_value: float = None, current: float = None, status: bool = True) -> bool:
+    def set_variable(self, surface_pos: int, param_name: str, current: float = None, status: bool = True) -> bool:
         """
         将表面参数设置为变量
         
         Args:
             surface_pos: 表面位置
             param_name: 参数名称，支持 'radius', 'thickness', 'conic' 等
-            min_value: 变量最小值（可选）
-            max_value: 变量最大值（可选）
             current: 当前值（可选）
             status: 变量状态，True表示启用，False表示禁用
             
@@ -467,25 +516,28 @@ class LensDesignManager:
                 raise ValueError(f"不支持的参数名称: {param_name}")
             
             # 如果提供了当前值，先设置当前值
-            cell = surface.GetCellAt(param_column_map[param_name])
+            cell_type = param_column_map[param_name]
+            cell = surface.GetCellAt(cell_type)
             if current is not None:
                 cell.DoubleValue = current
                 
-            # 获取单元格并设置为变量
-            cell.MakeSolveVariable()
+            # 使用辅助方法设置为变量
+            cell, is_var, solve_type = self.set_cell_as_variable(
+                surface, 
+                cell_type, 
+                f"表面 {surface_pos} 的 {param_name}"
+            )
             
-            # 设置最小值和最大值（如果提供）
-            solver_data = cell.GetSolveData()
-            if solver_data is not None:
-                if min_value is not None:
-                    solver_data.MinValue = min_value
-                if max_value is not None:
-                    solver_data.MaxValue = max_value
-                solver_data.Status = status
-                cell.SetSolveData(solver_data)
+            # 设置变量状态
+            if is_var and status is not None:
+                solver_data = cell.GetSolveData()
+                if solver_data is not None:
+                    solver_data.Status = status
+                    cell.SetSolveData(solver_data)
+                    solver_data.Status = status
+                    cell.SetSolveData(solver_data)
             
-            logger.info(f"将表面 {surface_pos} 的 {param_name} 设置为变量")
-            return True
+            return is_var
             
         except Exception as e:
             logger.error(f"设置变量失败: {str(e)}")
@@ -530,22 +582,50 @@ class LensDesignManager:
     # === 批量设置变量 ===
     
     def set_all_thickness_as_variables(self, start_surface: int = 1, end_surface: int = None, 
-                                     exclude_surfaces: List[int] = None, 
-                                     min_value: float = 0.1, max_value: float = 50.0) -> bool:
+                                  exclude_surfaces: List[int] = None, status: bool = True) -> bool:
         """
-        批量设置所有表面厚度为变量
+        批量设置所有表面的厚度为变量
         
         Args:
             start_surface: 起始表面编号
             end_surface: 结束表面编号（默认为最后一个表面）
             exclude_surfaces: 排除的表面列表
-            min_value: 最小值
-            max_value: 最大值
+            status: 变量状态，True表示启用，False表示禁用
             
         Returns:
             是否设置成功
         """
         try:
+            # 尝试使用Zemax官方的工具方法
+            try:
+                tools = self.TheSystem.Tools
+                if hasattr(tools, "SetAllThicknessesVariable"):
+                    # 如果有排除表面，先清除所有变量，然后设置需要的表面
+                    if exclude_surfaces and len(exclude_surfaces) > 0:
+                        for i in range(start_surface, end_surface + 1):
+                            if i not in exclude_surfaces:
+                                surface = self.get_surface(i)
+                                # 使用辅助方法设置变量
+                                cell, is_var, _ = self.set_cell_as_variable(
+                                    surface, 
+                                    self.ZOSAPI.Editors.LDE.SurfaceColumn.Thickness, 
+                                    f"表面 {i} 的厚度"
+                                )
+                                # 设置变量状态
+                                if is_var and status is not None:
+                                    solver_data = cell.GetSolveData()
+                                    if solver_data is not None:
+                                        solver_data.Status = status
+                                        cell.SetSolveData(solver_data)
+                        return True
+                    else:
+                        # 没有排除表面，直接使用官方工具
+                        tools.SetAllThicknessesVariable()
+                        return True
+            except Exception as e:
+                logger.warning(f"使用官方工具设置厚度变量失败: {str(e)}")
+            
+            # 如果官方工具失败，则使用逐个表面设置的方法
             # 获取系统的表面数量
             surface_count = self.LDE.NumberOfSurfaces
             
@@ -560,19 +640,11 @@ class LensDesignManager:
             success = True
             
             # 遍历表面设置厚度为变量
-            for i in range(start_surface, end_surface):
+            for i in range(start_surface, end_surface + 1):
                 if i not in exclude_surfaces:
                     try:
-                        # 获取当前厚度值作为初始值
-                        surface = self.get_surface(i)
-                        current_value = surface.Thickness
-                        
-                        # 设置厚度为变量
-                        result = self.set_variable(i, 'thickness', min_value=min_value, 
-                                                max_value=max_value, current=current_value)
+                        result = self.set_variable(i, 'thickness', status=status)
                         success = success and result
-                        
-                        logger.info(f"将表面 {i} 的厚度设置为变量，范围: [{min_value}, {max_value}]")
                     except Exception as e:
                         logger.error(f"将表面 {i} 的厚度设置为变量时出错: {str(e)}")
                         success = False
@@ -584,22 +656,51 @@ class LensDesignManager:
             return False
     
     def set_all_radii_as_variables(self, start_surface: int = 1, end_surface: int = None, 
-                                exclude_surfaces: List[int] = None, 
-                                min_value: float = -500.0, max_value: float = 500.0) -> bool:
+                                exclude_surfaces: List[int] = None, status: bool = True) -> bool:
         """
-        批量设置所有表面曲率半径为变量
+        批量设置所有表面的曲率半径为变量
         
         Args:
             start_surface: 起始表面编号
             end_surface: 结束表面编号（默认为最后一个表面）
             exclude_surfaces: 排除的表面列表
-            min_value: 最小值
-            max_value: 最大值
+            status: 变量状态，True表示启用，False表示禁用
             
         Returns:
             是否设置成功
         """
         try:
+            # 尝试使用Zemax官方的工具方法
+            try:
+                tools = self.TheSystem.Tools
+                if hasattr(tools, "SetAllRadiiVariable"):
+                    # 如果有排除表面，先清除所有变量，然后设置需要的表面
+                    if exclude_surfaces and len(exclude_surfaces) > 0:
+                        tools.RemoveAllVariables()  # 清除所有变量
+                        for i in range(start_surface, end_surface + 1):
+                            if i not in exclude_surfaces:
+                                surface = self.get_surface(i)
+                                # 使用辅助方法设置变量
+                                cell, is_var, _ = self.set_cell_as_variable(
+                                    surface, 
+                                    self.ZOSAPI.Editors.LDE.SurfaceColumn.Radius, 
+                                    f"表面 {i} 的曲率半径"
+                                )
+                                # 设置变量状态
+                                if is_var and status is not None:
+                                    solver_data = cell.GetSolveData()
+                                    if solver_data is not None:
+                                        solver_data.Status = status
+                                        cell.SetSolveData(solver_data)
+                        return True
+                    else:
+                        # 没有排除表面，直接使用官方工具
+                        tools.SetAllRadiiVariable()
+                        return True
+            except Exception as e:
+                logger.warning(f"使用官方工具设置曲率半径变量失败: {str(e)}")
+            
+            # 如果官方工具失败，则使用逐个表面设置的方法
             # 获取系统的表面数量
             surface_count = self.LDE.NumberOfSurfaces
             
@@ -614,26 +715,11 @@ class LensDesignManager:
             success = True
             
             # 遍历表面设置曲率半径为变量
-            for i in range(start_surface, end_surface):
+            for i in range(start_surface, end_surface + 1):
                 if i not in exclude_surfaces:
                     try:
-                        # 获取当前曲率半径值作为初始值
-                        surface = self.get_surface(i)
-                        current_value = surface.Radius
-                        
-                        # 如果是平面（无穷大半径），设置一个合理的初始值
-                        if abs(current_value) > 1e9:
-                            if current_value > 0:
-                                current_value = 100.0
-                            else:
-                                current_value = -100.0
-                        
-                        # 设置曲率半径为变量
-                        result = self.set_variable(i, 'radius', min_value=min_value, 
-                                                max_value=max_value, current=current_value)
+                        result = self.set_variable(i, 'radius', status=status)
                         success = success and result
-                        
-                        logger.info(f"将表面 {i} 的曲率半径设置为变量，范围: [{min_value}, {max_value}]")
                     except Exception as e:
                         logger.error(f"将表面 {i} 的曲率半径设置为变量时出错: {str(e)}")
                         success = False
@@ -646,7 +732,7 @@ class LensDesignManager:
     
     def set_all_conics_as_variables(self, start_surface: int = 1, end_surface: int = None, 
                                  exclude_surfaces: List[int] = None, 
-                                 min_value: float = -5.0, max_value: float = 0.0) -> bool:
+                                 status: bool = True) -> bool:
         """
         批量设置所有表面的锥面系数为变量
         
@@ -654,8 +740,7 @@ class LensDesignManager:
             start_surface: 起始表面编号
             end_surface: 结束表面编号（默认为最后一个表面）
             exclude_surfaces: 排除的表面列表
-            min_value: 最小值
-            max_value: 最大值
+            status: 变量状态，True表示启用，False表示禁用
             
         Returns:
             是否设置成功
@@ -707,24 +792,24 @@ class LensDesignManager:
                             # 确保单元格有值
                             conic_cell.Value = str(current_value)
                             
-                            # 设置为变量
-                            conic_cell.MakeSolveVariable()
+                            # 使用辅助方法设置变量
+                            cell, is_var, _ = self.set_cell_as_variable(
+                                surface, 
+                                self.ZOSAPI.Editors.LDE.SurfaceColumn.Conic, 
+                                f"表面 {i} 的锥面系数"
+                            )
                             
-                            # 设置变量范围
-                            solver_data = conic_cell.GetSolveData()
-                            if solver_data is not None:
-                                solver_data.MinValue = min_value
-                                solver_data.MaxValue = max_value
-                                solver_data.Status = True
-                                conic_cell.SetSolveData(solver_data)
-                            
-                            logger.info(f"将表面 {i} 的锥面系数设置为变量，范围: [{min_value}, {max_value}]")
+                            # 设置变量状态
+                            if is_var and status is not None:
+                                solver_data = cell.GetSolveData()
+                                if solver_data is not None:
+                                    solver_data.Status = status
+                                    cell.SetSolveData(solver_data)
                         except Exception as e:
                             logger.error(f"设置表面 {i} 的锥面系数变量失败: {str(e)}")
                             # 尝试使用备用方法
                             try:
-                                result = self.set_variable(i, 'conic', min_value=min_value, 
-                                                        max_value=max_value, current=current_value)
+                                result = self.set_variable(i, 'conic', current=current_value, status=status)
                                 success = success and result
                             except Exception as e2:
                                 logger.error(f"备用方法设置表面 {i} 的锥面系数变量失败: {str(e2)}")
@@ -741,7 +826,7 @@ class LensDesignManager:
     
     def set_all_aspheric_as_variables(self, start_surface: int = 1, end_surface: int = None, 
                                    exclude_surfaces: List[int] = None, order: int = 4,
-                                   min_value: float = -0.1, max_value: float = 0.1) -> bool:
+                                   status: bool = True) -> bool:
         """
         批量设置所有表面的非球面各阶系数为变量
         
@@ -750,8 +835,7 @@ class LensDesignManager:
             end_surface: 结束表面编号（默认为最后一个表面）
             exclude_surfaces: 排除的表面列表
             order: 设置到第几阶系数（2为4阶，3为6阶，4为8阶，5为10阶...）
-            min_value: 最小值
-            max_value: 最大值
+            status: 变量状态，True表示启用，False表示禁用
             
         Returns:
             是否设置成功
@@ -850,18 +934,19 @@ class LensDesignManager:
                                 # 确保单元格有值
                                 param_cell.Value = str(current_value)
                                 
-                                # 设置为变量
-                                param_cell.MakeSolveVariable()
+                                # 使用辅助方法设置变量
+                                cell, is_var, _ = self.set_cell_as_variable(
+                                    surface, 
+                                    self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1 + j, 
+                                    f"表面 {i} 的非球面{(j+1)*2+2}阶系数"
+                                )
                                 
-                                # 设置变量范围
-                                solver_data = param_cell.GetSolveData()
-                                if solver_data is not None:
-                                    solver_data.MinValue = min_value
-                                    solver_data.MaxValue = max_value
-                                    solver_data.Status = True
-                                    param_cell.SetSolveData(solver_data)
-                                
-                                logger.info(f"将表面 {i} 的非球面{(j+1)*2+2}阶系数设置为变量，范围: [{min_value}, {max_value}]")
+                                # 设置变量状态
+                                if is_var and status is not None:
+                                    solver_data = cell.GetSolveData()
+                                    if solver_data is not None:
+                                        solver_data.Status = status
+                                        cell.SetSolveData(solver_data)
                             except Exception as e:
                                 logger.error(f"将表面 {i} 的非球面{(j+1)*2+2}阶系数设置为变量时出错: {str(e)}")
                                 success = False
@@ -884,15 +969,25 @@ class LensDesignManager:
         
         Args:
             surface_pos: 表面位置
-            solver_type: 求解器类型，支持 'position', 'thickness', 'curvature', 'pickup' 等
-            param_name: 参数名称
-            target_value: 目标值（对于某些求解器类型是必需的）
-            reference_surface: 参考表面（对于pickup求解器是必需的）
+            solver_type: 求解器类型，支持:
+                - 'fixed': 固定参数值
+                - 'pickup': 拾取求解器，从其他表面拾取参数值
+            param_name: 参数名称，支持:
+                - 'radius': 曲率半径
+                - 'thickness': 厚度
+                - 'conic': 锥面系数
+                - 'semi_diameter': 半口径
+                - 'material': 材料
+            target_value: 目标值，用途取决于求解器类型:
+                - 对于'fixed'，为固定参数值
+                - 对于'pickup'，为缩放因子
+            reference_surface: 参考表面（仅对于pickup求解器是必需的）
             
         Returns:
             是否设置成功
         """
         try:
+            # 获取表面
             surface = self.get_surface(surface_pos)
             
             # 参数列与变量映射
@@ -907,107 +1002,105 @@ class LensDesignManager:
             if param_name not in param_column_map:
                 raise ValueError(f"不支持的参数名称: {param_name}")
             
-            cell = surface.GetCellAt(param_column_map[param_name])
+            # 获取单元格
+            cell_prop_map = {
+                'radius': 'RadiusCell',
+                'thickness': 'ThicknessCell',
+                'conic': 'ConicCell',
+                'semi_diameter': 'SemiDiameterCell',
+                'material': 'MaterialCell'
+            }
             
-            # 根据求解器类型设置不同的求解器
+            # 优先使用直接属性访问（例如RadiusCell）
+            if hasattr(surface, cell_prop_map[param_name]):
+                cell = getattr(surface, cell_prop_map[param_name])
+            else:
+                # 备用方法：使用GetCellAt
+                cell = surface.GetCellAt(param_column_map[param_name])
+            
+            # 处理固定值（清除求解器）
             if solver_type == 'fixed':
-                # 固定参数值
-                cell.ClearSolve()
+                # 尝试通用的方法清除求解器
+                if hasattr(cell, 'ClearSolve'):
+                    cell.ClearSolve()
+                elif hasattr(cell, 'RemoveSolve'):
+                    cell.RemoveSolve()
+                
+                # 设置固定值
                 if target_value is not None:
                     if param_name == 'material':
                         cell.Value = target_value
                     else:
                         cell.DoubleValue = target_value
+                
+                logger.info(f"成功将表面 {surface_pos} 的 {param_name} 设置为固定值: {target_value}")
+                return True
             
-            elif solver_type == 'pickup':
-                # 拾取求解器
-                if reference_surface is None:
-                    raise ValueError("pickup求解器需要指定reference_surface")
+            # 获取求解器类型枚举
+            solve_types = self.ZOSAPI.Editors.SolveType
+            
+            # 创建求解器
+            solver = None
+            
+            if solver_type == 'pickup':
+                # 尝试创建拾取求解器
+                if hasattr(solve_types, 'SurfacePickup'):
+                    solver = cell.CreateSolveType(solve_types.SurfacePickup)
                     
-                try:
-                    # 方法1: 直接调用MakeSolvePickup
-                    cell.MakeSolvePickup()
-                except:
-                    try:
-                        # 方法2: 使用SetSolveData设置Pickup类型
-                        solver_data = cell.GetSolveData()
-                        solver_data.Type = 3  # 3通常是Pickup求解器类型
-                        cell.SetSolveData(solver_data)
-                    except:
-                        logger.warning(f"无法设置Pickup求解器，尝试替代方法")
-                
-                # 设置求解器参数
-                solver_data = cell.GetSolveData()
-                try:
-                    solver_data.PickupSurface = reference_surface
-                except:
-                    try:
-                        solver_data.Source = reference_surface
-                    except:
-                        logger.warning(f"无法设置参考表面")
+                    # 必须设置参考表面
+                    if reference_surface is None:
+                        raise ValueError("pickup求解器需要指定reference_surface")
+                    
+                    # 设置参考表面和缩放因子
+                    if hasattr(solver, '_S_SurfacePickup'):
+                        pickup_data = solver._S_SurfacePickup
+                        pickup_data.Surface = reference_surface
+                        pickup_data.Column = param_column_map[param_name]
+                        if target_value is not None:
+                            pickup_data.ScaleFactor = target_value
+                    else:
+                        # 备用设置方法
+                        if hasattr(solver, 'Surface'):
+                            solver.Surface = reference_surface
+                        elif hasattr(solver, 'PickupSurface'):
+                            solver.PickupSurface = reference_surface
+                        elif hasattr(solver, 'Source'):
+                            solver.Source = reference_surface
                         
-                if target_value is not None:  # 可选的缩放系数
-                    try:
-                        solver_data.ScaleFactor = target_value
-                    except:
+                        if target_value is not None:
+                            if hasattr(solver, 'ScaleFactor'):
+                                solver.ScaleFactor = target_value
+                            elif hasattr(solver, 'Scale'):
+                                solver.Scale = target_value
+                    
+                    logger.info(f"为表面 {surface_pos} 的 {param_name} 设置pickup求解器，参考表面: {reference_surface}，缩放因子: {target_value}")
+                elif hasattr(cell, 'MakeSolvePickup'):
+                    # 备用方法：使用MakeSolvePickup
+                    cell.MakeSolvePickup()
+                    solver = cell.GetSolveData()
+                    
+                    # 尝试设置参考表面和缩放因子
+                    if solver is not None:
                         try:
-                            solver_data.Scale = target_value
-                        except:
-                            logger.warning(f"无法设置缩放系数")
-                
-                cell.SetSolveData(solver_data)
-            
-            elif solver_type == 'marginal_ray':
-                # 边缘光线求解器
-                cell.MakeSolveMarginalRay()
-                solver_data = cell.GetSolveData()
-                if target_value is not None:
-                    solver_data.PupilZoneHeight = target_value
-                cell.SetSolveData(solver_data)
-            
-            elif solver_type == 'chief_ray':
-                # 主光线求解器
-                cell.MakeSolveChiefRay()
-                solver_data = cell.GetSolveData()
-                if target_value is not None:
-                    solver_data.PupilZoneHeight = target_value
-                cell.SetSolveData(solver_data)
-            
-            elif solver_type == 'edge_thickness':
-                # 边缘厚度求解器
-                try:
-                    # 方法1: 直接调用MakeSolveEdgeThickness
-                    cell.MakeSolveEdgeThickness()
-                except:
-                    try:
-                        # 方法2: 使用SetSolveData设置EdgeThickness类型
-                        solver_data = cell.GetSolveData()
-                        solver_data.Type = 4  # 4通常是EdgeThickness求解器类型
-                        cell.SetSolveData(solver_data)
-                    except:
-                        logger.warning(f"无法设置边缘厚度求解器，尝试替代方法")
-                
-                # 设置目标值
-                solver_data = cell.GetSolveData()
-                if target_value is not None:
-                    try:
-                        solver_data.EdgeThickness = target_value
-                    except:
-                        try:
-                            solver_data.Target = target_value
-                        except:
-                            logger.warning(f"无法设置边缘厚度目标值")
-                
-                cell.SetSolveData(solver_data)
-                if target_value is not None:
-                    solver_data.TargetEdgeThickness = target_value
-                cell.SetSolveData(solver_data)
-            
+                            if hasattr(solver, 'Surface'):
+                                solver.Surface = reference_surface
+                            if target_value is not None and hasattr(solver, 'ScaleFactor'):
+                                solver.ScaleFactor = target_value
+                        except Exception as e:
+                            logger.warning(f"设置pickup求解器参数时出错: {str(e)}")
+                    
+                    logger.info(f"使用备用方法为表面 {surface_pos} 的 {param_name} 设置pickup求解器")
             else:
-                raise ValueError(f"不支持的求解器类型: {solver_type}")
+                raise ValueError(f"不支持的求解器类型: {solver_type}，仅支持 'fixed' 和 'pickup'")
             
-            logger.info(f"在表面 {surface_pos} 为 {param_name} 设置 {solver_type} 求解器")
-            return True
+            # 应用求解器设置
+            if solver is not None:
+                cell.SetSolveData(solver)
+                logger.info(f"成功在表面 {surface_pos} 为 {param_name} 设置 {solver_type} 求解器")
+                return True
+            else:
+                logger.error(f"创建求解器失败: {solver_type}")
+                return False
             
         except Exception as e:
             logger.error(f"设置求解器失败: {str(e)}")
@@ -1018,14 +1111,20 @@ class LensDesignManager:
         """
         设置拾取求解器的快捷方法
         
+        拾取求解器允许一个表面的参数值从另一个表面拾取，并可选择应用缩放因子。
+        
         Args:
-            surface_pos: 表面位置
-            param_name: 参数名称
-            reference_surface: 参考表面
-            scale_factor: 缩放系数（默认为1.0）
+            surface_pos: 表面位置（要设置求解器的表面）
+            param_name: 参数名称，支持 'radius'、'thickness'、'conic' 等
+            reference_surface: 参考表面（从哪个表面拾取参数值）
+            scale_factor: 缩放系数（默认为1.0），应用于从参考表面拾取的值
             
         Returns:
             是否设置成功
+            
+        示例:
+            # 将表面2的曲率半径设为表面1曲率半径的负值
+            lde.set_pickup_solver(2, 'radius', reference_surface=1, scale_factor=-1.0)
         """
         return self.set_solver(surface_pos, 'pickup', param_name, 
                               target_value=scale_factor, 
@@ -1035,129 +1134,23 @@ class LensDesignManager:
         """
         设置边缘厚度求解器的快捷方法
         
-        Args:
-            surface_pos: 表面位置
-            target_thickness: 目标边缘厚度
-            
-        Returns:
-            是否设置成功
-        """
-        return self.set_solver(surface_pos, 'edge_thickness', 'thickness', 
-                              target_value=target_thickness)
-    
-    # === 多组态设置 ===
-    
-    def add_configuration(self, name: str = None) -> int:
-        """
-        添加新的组态
+        注意：当前版本已不再支持边缘厚度求解器类型。此方法保留为兼容性目的，但会返回错误。
+        如需控制边缘厚度，请考虑使用Zemax的内置优化功能或其他求解器方案。
         
         Args:
-            name: 组态名称（可选）
-            
-        Returns:
-            新组态的索引，如果失败则返回-1
-        """
-        try:
-            configs = self.TheSystem.MCE
-            
-            # 尝试多种方式添加配置
-            try:
-                # 方法1：不带参数
-                new_config = configs.AddConfiguration()
-            except:
-                try:
-                    # 方法2：带名称参数
-                    config_name = name or f"配置 {configs.NumberOfConfigurations + 1}"
-                    new_config = configs.AddConfiguration(config_name)
-                except:
-                    try:
-                        # 方法3：复制现有配置
-                        new_config = configs.AddConfiguration(1, 1)  # 复制第一个配置
-                    except:
-                        # 如果都失败，尝试简单的插入
-                        try:
-                            configs.InsertConfiguration(configs.NumberOfConfigurations + 1)
-                            new_config = configs.GetConfiguration(configs.NumberOfConfigurations)
-                        except:
-                            raise ValueError("无法添加新组态，请检查API文档")
-            
-            # 设置名称（如果提供且支持）
-            if name is not None:
-                try:
-                    new_config.Name = name
-                except:
-                    try:
-                        configs.SetName(configs.NumberOfConfigurations, name)
-                    except:
-                        logger.warning(f"无法设置组态名称: {name}")
-                
-            index = configs.NumberOfConfigurations
-            logger.info(f"添加了新组态: {name or f'配置 {index}'}")
-            return index
-            
-        except Exception as e:
-            logger.error(f"添加组态失败: {str(e)}")
-            return -1
-    
-    def set_configuration_parameter(self, config_index: int, surface_pos: int, 
-                                param_name: str, value: Any) -> bool:
-        """
-        设置特定组态的参数值
-        
-        Args:
-            config_index: 组态索引
             surface_pos: 表面位置
-            param_name: 参数名称
-            value: 参数值
+            target_thickness: 目标边缘厚度（单位与系统单位一致，通常为毫米）
             
         Returns:
-            是否设置成功
+            是否设置成功（当前版本始终返回False）
+            
+        示例:
+            # 此方法在当前版本不再起作用
+            lde.set_edge_thickness_solver(2, target_thickness=2.0)
         """
-        try:
-            configs = self.TheSystem.MCE
-            
-            if config_index <= 0 or config_index > configs.NumberOfConfigurations:
-                raise ValueError(f"无效的组态索引: {config_index}")
-            
-            # 先设置当前组态
-            current_config = configs.CurrentConfiguration
-            configs.SetCurrentConfiguration(config_index)
-            
-            # 参数列映射
-            param_column_map = {
-                'radius': self.ZOSAPI.Editors.LDE.SurfaceColumn.Radius,
-                'thickness': self.ZOSAPI.Editors.LDE.SurfaceColumn.Thickness,
-                'conic': self.ZOSAPI.Editors.LDE.SurfaceColumn.Conic,
-                'semi_diameter': self.ZOSAPI.Editors.LDE.SurfaceColumn.SemiDiameter,
-                'material': self.ZOSAPI.Editors.LDE.SurfaceColumn.Material
-            }
-            
-            if param_name not in param_column_map:
-                raise ValueError(f"不支持的参数名称: {param_name}")
-            
-            # 设置参数值
-            surface = self.get_surface(surface_pos)
-            cell = surface.GetCellAt(param_column_map[param_name])
-            
-            if param_name == 'material':
-                cell.Value = value
-            else:
-                cell.DoubleValue = value
-            
-            # 恢复原始组态
-            configs.SetCurrentConfiguration(current_config)
-            
-            logger.info(f"在组态 {config_index} 中设置表面 {surface_pos} 的 {param_name} 为 {value}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"设置组态参数失败: {str(e)}")
-            # 尝试恢复原始组态
-            try:
-                configs.SetCurrentConfiguration(current_config)
-            except:
-                pass
-            return False
+        logger.warning("边缘厚度求解器已不再支持。请使用Zemax的内置优化功能或其他求解器方案。")
+        return False
+    
 
     def set_surface_parameters(self, surface_pos: int, **kwargs) -> bool:
         """
@@ -1225,130 +1218,217 @@ class LensDesignManager:
             logger.error(f"设置表面注释失败: {str(e)}")
             return False
 
-    def set_stop_surface(self, surface_pos: int) -> bool:
+    def set_cell_as_variable(self, surface, column_type, description="") -> tuple:
+        """
+        将表面的单元格设置为变量
+        
+        Args:
+            surface: 表面对象
+            column_type: 列类型（SurfaceColumn枚举值）
+            description: 变量描述
+            
+        Returns:
+            (cell, is_variable, solve_type): 单元格对象、是否成功设置为变量、求解器类型
+        """
+        try:
+            # 获取单元格
+            cell = surface.GetCellAt(column_type)
+            
+            # 设置为变量 - 尝试使用最通用的方法
+            try:
+                # 方法1: 直接调用MakeSolveVariable（官方推荐方式）
+                cell.MakeSolveVariable()
+                solver_data = cell.GetSolveData()
+                solve_type = solver_data.Type if solver_data else None
+                
+                logger.info(f"成功将{description}设置为变量")
+                return cell, True, solve_type
+            except Exception as e1:
+                logger.debug(f"使用MakeSolveVariable设置变量失败: {str(e1)}")
+                
+                # 尝试其他方式
+                try:
+                    # 方法2: 使用SetSolveData设置Variable类型
+                    solver_data = cell.GetSolveData()
+                    if solver_data is None:
+                        # 创建一个新的求解数据
+                        solver_data = cell.CreateSolveData()
+                    
+                    # 设置为变量类型(通常变量类型为1)
+                    solver_data.Type = 1
+                    cell.SetSolveData(solver_data)
+                    
+                    logger.info(f"使用SetSolveData成功将{description}设置为变量")
+                    return cell, True, 1
+                except Exception as e2:
+                    logger.debug(f"使用SetSolveData设置变量失败: {str(e2)}")
+                    
+                    # 最后的尝试
+                    try:
+                        # 方法3: 使用特定的API设置
+                        cell.MakeVariable()
+                        logger.info(f"使用MakeVariable成功将{description}设置为变量")
+                        return cell, True, None
+                    except Exception as e3:
+                        logger.error(f"所有设置变量方法都失败: {str(e3)}")
+                        return cell, False, None
+        except Exception as e:
+            logger.error(f"设置单元格变量时出错: {str(e)}")
+            return None, False, None
+            
+    def get_system_info(self) -> dict:
+        """
+        获取系统基本信息
+        
+        Returns:
+            dict: 包含表面数量、光阑面位置等信息的字典
+        """
+        try:
+            info = {}
+            info['surfaces'] = self.LDE.NumberOfSurfaces
+            
+            # 查找光阑面位置
+            stop_surface = -1
+            for i in range(1, info['surfaces'] + 1):
+                try:
+                    surface = self.get_surface(i)
+                    if hasattr(surface, 'IsStop') and surface.IsStop:
+                        stop_surface = i
+                        break
+                except:
+                    pass
+            
+            info['stop_surface'] = stop_surface
+            
+            # 获取其他系统信息
+            if hasattr(self.TheSystem, 'SystemData'):
+                system_data = self.TheSystem.SystemData
+                
+                # 获取视场信息
+                try:
+                    info['fields'] = system_data.Fields.NumberOfFields
+                except:
+                    info['fields'] = 0
+                
+                # 获取波长信息
+                try:
+                    info['wavelengths'] = system_data.Wavelengths.NumberOfWavelengths
+                except:
+                    info['wavelengths'] = 0
+            
+            return info
+        except Exception as e:
+            logger.error(f"获取系统信息失败: {str(e)}")
+            return {'surfaces': 0, 'stop_surface': -1, 'fields': 0, 'wavelengths': 0}
+    
+    def set_stop_surface(self, surface_pos: int, remove: bool = False) -> bool:
         """
         设置光阑面
         
         Args:
-            surface_pos: 表面位置
+            surface_pos: 光阑面位置
+            remove: 是否移除光阑面设置（只在surface_pos=0时有效）
             
         Returns:
             是否设置成功
         """
         try:
-            # 尝试多种方法设置光阑面
-            try:
-                # 方法1：通过LDE直接设置
-                self.LDE.SetApertureStop(surface_pos)
-            except:
-                try:
-                    # 方法2：通过TheSystem.SystemData设置
-                    self.TheSystem.SystemData.Aperture.ApertureStopSurface = surface_pos
-                except:
-                    # 方法3：通过修改表面类型为光阑
-                    surface = self.get_surface(surface_pos)
-                    cell = surface.GetCellAt(self.ZOSAPI.Editors.LDE.SurfaceColumn.Type)
-                    cell.Value = "STOP"
+            # 如果是移除光阑面
+            if remove or surface_pos <= 0:
+                # 查找并清除当前光阑面
+                for i in range(1, self.get_surface_count() + 1):
+                    try:
+                        surface = self.get_surface(i)
+                        if hasattr(surface, 'IsStop') and surface.IsStop:
+                            surface.IsStop = False
+                            logger.info(f"清除位置 {i} 的光阑面设置")
+                    except:
+                        pass
+                return True
             
-            logger.info(f"设置表面 {surface_pos} 为光阑面")
-            return True
+            # 设置新的光阑面
+            surface = self.get_surface(surface_pos)
+            
+            # 先清除其他表面的光阑设置
+            for i in range(1, self.get_surface_count() + 1):
+                if i != surface_pos:
+                    try:
+                        other_surface = self.get_surface(i)
+                        if hasattr(other_surface, 'IsStop') and other_surface.IsStop:
+                            other_surface.IsStop = False
+                            logger.info(f"清除位置 {i} 的光阑面设置")
+                    except:
+                        pass
+            
+            # 设置新的光阑面
+            # 方法1: 使用IsStop属性（官方推荐）
+            try:
+                surface.IsStop = True
+                logger.info(f"使用IsStop=True设置表面 {surface_pos} 为光阑面")
+                
+                # 验证是否成功
+                if hasattr(surface, 'IsStop') and surface.IsStop:
+                    return True
+            except Exception as e:
+                logger.debug(f"使用IsStop设置光阑面失败: {str(e)}")
+            
+            # 方法2: 使用set_aperture方法的备用方案
+            try:
+                self.set_aperture(surface_pos, "none")
+                logger.info(f"使用set_aperture('none')设置表面 {surface_pos} 为光阑面")
+                return True
+            except Exception as e:
+                logger.error(f"设置光阑面失败: {str(e)}")
+                return False
+                
         except Exception as e:
             logger.error(f"设置光阑面失败: {str(e)}")
             return False
-
-    def get_param_code(self, param_name: str) -> int:
+    
+    def update(self):
         """
-        获取参数对应的代码
-        
-        Args:
-            param_name: 参数名称
-            
-        Returns:
-            参数代码
-        """
-        param_code_map = {
-            'radius': 0,  # ZOSAPI.Editors.LDE.SolveType.Curvature
-            'thickness': 1,  # ZOSAPI.Editors.LDE.SolveType.Thickness
-            'material': 2,  # 材料没有求解器编号，使用自定义编号
-            'conic': 3,  # ZOSAPI.Editors.LDE.SolveType.Conic
-            'semi_diameter': 4  # 半口径没有求解器编号，使用自定义编号
-        }
-        
-        return param_code_map.get(param_name, -1)
-        
-    def get_system_info(self) -> Dict:
-        """
-        获取系统基本信息
+        更新光学系统，应用所有的变更和求解器设置
         
         Returns:
-            包含系统信息的字典
+            是否更新成功
         """
         try:
-            # 获取表面数量
-            surface_count = self.LDE.NumberOfSurfaces
+            # 尝试使用不同的API调用方法来更新系统
+            updated = False
             
-            # 获取物距和总长
-            object_distance = 0
-            total_length = 0
-            component_count = 0
-            
-            # 使用更健壮的方法获取信息
+            # 方法1: 使用TheSystem的Update方法
             try:
-                if surface_count > 0:
-                    # 尝试获取物距（第一个表面的厚度）
-                    try:
-                        object_surface = self.LDE.GetSurfaceAt(1)
-                        thickness_cell = object_surface.GetCellAt(self.ZOSAPI.Editors.LDE.SurfaceColumn.Thickness)
-                        object_distance = thickness_cell.DoubleValue
-                    except:
-                        logger.warning("无法获取物距")
-                    
-                    # 计算总长度（所有表面厚度之和）
-                    for i in range(1, surface_count + 1):
-                        try:
-                            surface = self.LDE.GetSurfaceAt(i)
-                            thickness_cell = surface.GetCellAt(self.ZOSAPI.Editors.LDE.SurfaceColumn.Thickness)
-                            total_length += thickness_cell.DoubleValue
-                        except:
-                            pass
-                
-                    # 计算组件数量（考虑材料非空的表面数）
-                    for i in range(1, surface_count):
-                        try:
-                            surface = self.LDE.GetSurfaceAt(i)
-                            material_cell = surface.GetCellAt(self.ZOSAPI.Editors.LDE.SurfaceColumn.Material)
-                            if material_cell.Value and material_cell.Value != "":
-                                component_count += 1
-                        except:
-                            pass
-            except Exception as inner_e:
-                logger.warning(f"获取详细系统信息时出错: {str(inner_e)}")
+                if hasattr(self.zos_manager.TheSystem, 'Update'):
+                    self.zos_manager.TheSystem.Update()
+                    updated = True
+                    logger.info("成功使用TheSystem.Update()更新系统")
+            except Exception as e:
+                logger.debug(f"使用TheSystem.Update()更新失败: {str(e)}")
             
-            return {
-                'surface_count': surface_count,
-                'component_count': component_count,
-                'object_distance': object_distance,
-                'total_length': total_length
-            }
+            # 方法2: 使用LDE的Update方法
+            if not updated and hasattr(self.LDE, 'Update'):
+                try:
+                    self.LDE.Update()
+                    updated = True
+                    logger.info("成功使用LDE.Update()更新系统")
+                except Exception as e:
+                    logger.debug(f"使用LDE.Update()更新失败: {str(e)}")
+            
+            # 方法3: 尝试使用UpdateLDE方法
+            if not updated and hasattr(self.zos_manager.TheSystem, 'UpdateLDE'):
+                try:
+                    self.zos_manager.TheSystem.UpdateLDE()
+                    updated = True
+                    logger.info("成功使用TheSystem.UpdateLDE()更新系统")
+                except Exception as e:
+                    logger.debug(f"使用TheSystem.UpdateLDE()更新失败: {str(e)}")
+            
+            return updated
             
         except Exception as e:
-            logger.error(f"获取系统信息失败: {str(e)}")
-            return {
-                'surface_count': 0,
-                'component_count': 0,
-                'object_distance': 0,
-                'total_length': 0,
-                'error': str(e)
-            }
-            
-        return {
-            'surface_count': 0,
-            'component_count': 0,
-            'object_distance': 0,
-            'total_length': 0
-        }
-
-# 便捷函数，创建镜头设计管理器
+            logger.error(f"更新系统失败: {str(e)}")
+            return False
+# 便捷方法，创建镜头设计管理器
 def create_lens_design_manager(zos_manager):
     """
     创建镜头设计管理器实例
