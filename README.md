@@ -25,6 +25,12 @@
 - **系统Layout分析 | System Layout Analysis**: 完整的2D/3D系统布局图生成和导出
   *Complete 2D/3D system layout generation and export capabilities*
   
+- **评价函数编辑器 | Merit Function Editor**: 强大的评价函数创建与优化工具
+  *Powerful merit function creation and optimization tools*
+  
+- **综合优化策略 | Comprehensive Optimization Strategies**: 支持局部、全局和锤形优化
+  *Support for local, global, and hammer optimization strategies*
+  
 - **综合分析 | Comprehensive Analysis**: 在一张图中集成MTF、点列图和光线扇形图
   *Integration of MTF, spot diagrams, and ray fans in a single comprehensive figure*
   
@@ -50,6 +56,41 @@ zos_manager = ZOSAPIManager()
 # 一键分析图表 | One-click analysis and charts  
 saved_files = analyze_and_plot_system(zos_manager, output_dir="analysis_results")
 print("分析完成！| Analysis completed!", saved_files)
+```
+
+### 评价函数编辑与优化 | Merit Function Editing and Optimization
+
+```python
+from zosapi_autoopt import ZOSAPIManager, MeritFunctionEditor
+
+# 连接到Zemax并加载系统 | Connect to Zemax and load a system
+zos_manager = ZOSAPIManager()
+zos_manager.open_file("your_lens_file.zos")
+
+# 创建评价函数编辑器 | Create merit function editor
+mf_editor = MeritFunctionEditor(zos_manager)
+
+# 使用优化向导生成评价函数 | Use optimization wizard to generate merit function
+mf_editor.use_optimization_wizard(
+    wizard_type='rms_spot',  # 使用RMS光斑优化 | Use RMS spot optimization
+    weight=1.0,
+    glass_min=2.0,
+    glass_max=30.0
+)
+
+# 添加自定义操作数 | Add custom operands
+mf_editor.add_operand(
+    operand_type='TOTR',  # 总长度 | Total track length
+    target=100.0,
+    weight=0.1
+)
+
+# 运行优化 | Run optimization
+result = mf_editor.run_local_optimization()
+print(f"优化完成！| Optimization completed! 最终评价函数值 | Final merit: {result['final_merit']}")
+
+# 保存结果 | Save results
+zos_manager.save_file("optimized_system.zos")
 ```
 
 ### 单独分析功能 | Individual Analysis Functions
