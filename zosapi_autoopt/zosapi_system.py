@@ -37,8 +37,8 @@ class SystemParameterManager:
         return self.TheSystem.SystemData
     
     # === 孔径设置 ===
-    
-    def set_aperture(self, aperture_type: str, value: float, stop_surface: int = 0):
+
+    def set_aperture(self, aperture_type: str, value: float, stop_surface: int = 0, clear_aperture_margin: float = None):
         """
         设置系统孔径
         
@@ -68,9 +68,15 @@ class SystemParameterManager:
             
             if stop_surface > 0:
                 aperture.StopSurface = stop_surface
-                
+
+            if clear_aperture_margin is not None:
+            # 这个属性用于设置净口径余量
+                aperture.SemiDiameterMargin = clear_aperture_margin
+
+
             logger.info(f"设置孔径: 类型={aperture_type}, 值={value}, 光阑面={stop_surface}")
             
+
         except Exception as e:
             logger.error(f"设置孔径失败: {str(e)}")
             raise
@@ -445,7 +451,65 @@ class SystemParameterManager:
         except Exception as e:
             logger.error(f"清除视场点失败: {str(e)}")
             raise
-    
+
+    def add_catalog(self, catalog_name: str):
+        """
+        向系统中添加指定的材料库。
+
+        Args:
+            catalog_name (str): 要添加的材料库名称。
+        
+        常用材料库 (Common catalogs include):
+            - "SCHOTT"      (德国肖特)
+            - "CDGM"        (中国成都光明)
+            - "HOYA"        (日本豪雅)
+            - "OHARA"       (日本小原)
+            - "SUMITA"      (日本住田)
+            - "CORNING"     (美国康宁)
+            - "HIKARI"      (日本光)
+            - "NHG"         (Newport)
+            - "INFRARED"    (红外材料)
+            - "UV"          (紫外材料)
+            - "MISC"        (其他杂项材料)
+            - "PLASTIC"     (塑料材料)
+        """
+        try:
+            catalogs = self.system_data.MaterialCatalogs
+            catalogs.AddCatalog(catalog_name)
+            logger.info(f"成功添加材料库: {catalog_name}")
+        except Exception as e:
+            logger.error(f"添加材料库 '{catalog_name}' 失败: {str(e)}")
+            raise
+
+    def remove_catalog(self, catalog_name: str):
+        """
+        从系统中移除指定的材料库。
+        Args:
+            catalog_name (str): 要移除的材料库名称。
+        """
+        try:
+            catalogs = self.system_data.MaterialCatalogs
+            catalogs.RemoveCatalog(catalog_name)
+            logger.info(f"成功移除材料库: {catalog_name}")
+        except Exception as e:
+            logger.error(f"移除材料库 '{catalog_name}' 失败: {str(e)}")
+            raise
+            
+    def get_catalogs(self) -> List[str]:
+        """
+        获取当前系统中已加载的所有材料库列表。
+        注意: ZOS-API本身不直接支持获取列表，此功能受限。
+        Returns:
+            List[str]: 已加载材料库的名称列表 (当前返回空列表)。
+        """
+        try:
+            catalogs = self.system_data.MaterialCatalogs
+            logger.warning("ZOS-API不直接支持获取已加载材料库的列表。")
+            return []
+        except Exception as e:
+            logger.error(f"获取材料库列表失败: {str(e)}")
+            return []
+
     def get_system_summary(self) -> dict:
         """
         获取系统参数摘要

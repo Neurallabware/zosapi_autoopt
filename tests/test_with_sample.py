@@ -13,11 +13,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 def find_sample_file():
     """Find first Zemax sample file"""
-    # 直接使用完整路径，优先使用Double Gauss（有多个视场）
+
     sample_files = [
-        r"C:\Program Files\ANSYS Inc\v242\Zemax OpticStudio\ZemaxData\Samples\Sequential\Objectives\Double Gauss 28 degree field.zos",
-        r"C:\Program Files\ANSYS Inc\v242\Zemax OpticStudio\ZemaxData\Samples\Sequential\Objectives\Cooke 40 degree field.zos",
-        r"C:\Program Files\ANSYS Inc\v242\Zemax OpticStudio\ZemaxData\Samples\Sequential\Objectives\Singlet.zos"
+        r"D:\Science\summer\code\zosapi\zmx_data\Cooke 40 degree field.zos"
+        # r"D:\Science\summer\code\zosapi\zmx_data\Double Gauss 28 degree field.zos"
+        # r"D:\Science\summer\code\zosapi\zmx_data\Even Asphere.zos"
     ]
     
     for sample_file in sample_files:
@@ -45,7 +45,7 @@ def main():
     # Complete analysis
     print("Running analysis...")
     plotter = ZOSPlotter(zos_manager)
-    saved_files = plotter.analyze_and_plot_system(output_dir="output")
+    saved_files = plotter.analyze_and_plot_system(output_dir="output/plots")
 
     for analysis_type, file_path in saved_files.items():
         print(f"  - {analysis_type}: {Path(file_path).name}")
@@ -54,10 +54,10 @@ def main():
 
     # Create layout analyzer
     layout_analyzer = ZOSLayoutAnalyzer(zos_manager)
-    layout_analyzer.export_cross_section("output/layout_export.png")
-    print("Layout export completed: output/layout_export.png")
-    
-    
+    layout_analyzer.export_cross_section("output/plots/layout_export.png")
+    print("Layout export completed: output/plots/layout_export.png")
+
+
     # Disconnect from Zemax
     zos_manager.disconnect()
     print("Disconnected from Zemax OpticStudio")

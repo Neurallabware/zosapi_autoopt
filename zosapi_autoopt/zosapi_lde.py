@@ -922,6 +922,63 @@ class LensDesignManager:
         except Exception as e:
             logger.error(f"设置光阑面失败: {str(e)}")
             return False
+        
+    # === 求解器设置 ===
+    def _get_cell(self, surface_pos: int, param_name: str) -> Any:
+        """【私有辅助函数】获取指定表面和参数的单元格对象。"""
+        surface = self.get_surface(surface_pos)
+        param_column_map = {
+            'radius': self.ZOSAPI.Editors.LDE.SurfaceColumn.Radius,
+            'thickness': self.ZOSAPI.Editors.LDE.SurfaceColumn.Thickness,
+            'material': self.ZOSAPI.Editors.LDE.SurfaceColumn.Material,
+            'conic': self.ZOSAPI.Editors.LDE.SurfaceColumn.Conic
+        }
+        if param_name.lower() not in param_column_map:
+            raise ValueError(f"不支持的参数名称: {param_name}")
+        return surface.GetCellAt(param_column_map[param_name.lower()])
+
+    def set_pickup_solve(self, surface_pos: int, param_name: str, from_surface: int, scale: float = 1.0, offset: float = 0.0, from_column: str = None):
+        """设置拾取 (Pickup) 求解器。"""
+        cell = self._get_cell(surface_pos, param_name)
+        solver = cell.CreateSolveType(self.ZOSAPI.Editors.SolveType.SurfacePickup)
+        solver._S_SurfacePickup.Surface = from_surface
+        solver._S_SurfacePickup.ScaleFactor = scale
+        solver._S_SurfacePickup.Offset = offset
+        if from_column:
+            solver._S_SurfacePickup.Column = getattr(self.ZOSAPI.Editors.LDE.SurfaceColumn, from_column)
+        cell.SetSolveData(solver)
+        logger.info(f"成功为表面 {surface_pos} 的 '{param_name}' 设置了 Pickup 求解器。")
+
+    def set_f_number_solve(self, surface_pos: int, f_number: float):
+        """在曲率半径上设置 F/# 求解器。"""
+        cell = self._get_cell(surface_pos, 'radius')
+        solver = cell.CreateSolveType(self.ZOSAPI.Editors.SolveType.FNumber)
+        solver._S_FNumber.FNumber = f_number
+        cell.SetSolveData(solver)
+        logger.info(f"成功为表面 {surface_pos} 的曲率半径设置了 FNumber 求解器。")
+
+    def set_marginal_ray_angle_solve(self, surface_pos: int, angle: float):
+        """在厚度上设置边际光线角 (Marginal Ray Angle) 求解器。"""
+        cell = self._get_cell(surface_pos, 'thickness')
+        solver = cell.CreateSolveType(self.ZOSAPI.Editors.SolveType.MarginalRayAngle)
+        solver._S_MarginalRayAngle.Angle = angle
+        cell.SetSolveData(solver)
+        logger.info(f"成功为表面 {surface_pos} 的厚度设置了 MarginalRayAngle 求解器。")
+
+    def set_substitute_solve(self, surface_pos: int, catalog: str):
+        """在材料单元格上设置替代 (Substitute) 求解器。"""
+        cell = self._get_cell(surface_pos, 'material')
+        solver = cell.CreateSolveType(self.ZOSAPI.Editors.SolveType.MaterialSubstitute)
+        solver._S_MaterialSubstitute.Catalog = catalog
+        cell.SetSolveData(solver)
+        logger.info(f"成功为表面 {surface_pos} 的材料设置了 Substitute 求解器，使用 '{catalog}' 库。")
+            
+    def clear_solve(self, surface_pos: int, param_name: str):
+        """清除指定参数上的求解器。"""
+        cell = self._get_cell(surface_pos, param_name)
+        cell.ClearSolve()
+        logger.info(f"已清除表面 {surface_pos} 的 '{param_name}' 上的求解器。")
+
 
 # 便捷方法，创建镜头设计管理器
 def create_lens_design_manager(zos_manager):
