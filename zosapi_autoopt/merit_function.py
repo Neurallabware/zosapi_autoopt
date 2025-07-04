@@ -330,3 +330,68 @@ class MeritFunctionEditor:
         if 'weight' in kwargs:
             operand.Weight = float(kwargs['weight'])
         return True
+    
+    def run_global_optimization(self, timeout_seconds: int = 60) -> Dict[str, Any]:
+        """
+        运行全局优化 (Global Search)，完全遵循官方例程的最佳实践，并移除了不存在的LoadResult调用。
+        """
+        global_opt = None
+        try:
+            global_opt = self.TheSystem.Tools.OpenGlobalOptimization()
+            
+            # 直接使用官方例程中验证过的、固定的枚举成员
+            global_opt.NumberToSave = self.ZOSAPI.Tools.Optimization.OptimizationSaveCount.Save_10
+            
+            initial_merit = global_opt.InitialMeritFunction
+            logger.info(f"开始全局优化... 初始评价函数值: {initial_merit:.6f}，运行 {timeout_seconds} 秒")
+            
+            global_opt.RunAndWaitWithTimeout(timeout_seconds)
+            
+            logger.info("全局优化结束。")
+            
+            # 安全地读取结果
+            top_results = []
+            for i in range(1, 11): # 循环次数与 NumberToSave 设置的值完全对应
+                merit = global_opt.CurrentMeritFunction(i)
+                # 只有大于0的才被认为是有效的、已保存的结果
+                if merit > 0:
+                    top_results.append(merit)
+
+            if top_results:
+                logger.info(f"全局优化找到了 {len(top_results)} 个有效结果。最好的结果评价值为: {top_results[0]:.6f}")
+                # 系统将保持在全局优化结束时的状态。
+            else:
+                logger.warning("全局优化在规定时间内未找到任何优于初始值的结果。")
+
+            return {'success': True, 'initial_merit': initial_merit, 'top_results': top_results}
+        except Exception as e:
+            logger.error(f"全局优化失败: {str(e)}")
+            return {'success': False, 'error': str(e), 'top_results': []}
+        finally:
+            # 采用官方的“三步关闭法”，确保工具被彻底释放，防止程序卡死
+            if global_opt:
+                global_opt.Cancel()
+                global_opt.WaitForCompletion()
+                global_opt.Close()
+                logger.info("全局优化工具已彻底关闭。")
+                
+    def run_hammer_optimization(self, timeout_seconds: int = 60) -> Dict[str, Any]:
+        # Hammer优化的逻辑与Global类似，也需要三步关闭法
+        hammer_opt = None
+        try:
+            hammer_opt = self.TheSystem.Tools.OpenHammerOptimization()
+            initial_merit = hammer_opt.InitialMeritFunction
+            logger.info(f"开始锤形优化... 初始评价函数值: {initial_merit:.6f}，运行 {timeout_seconds} 秒")
+            hammer_opt.RunAndWaitWithTimeout(timeout_seconds)
+            final_merit = hammer_opt.CurrentMeritFunction
+            logger.info(f"锤形优化完成。最终评价函数值: {final_merit:.6f}")
+            return {'success': True, 'initial_merit': initial_merit, 'final_merit': final_merit}
+        except Exception as e:
+            logger.error(f"锤形优化失败: {str(e)}")
+            return {'success': False, 'error': str(e)}
+        finally:
+            if hammer_opt:
+                hammer_opt.Cancel()
+                hammer_opt.WaitForCompletion()
+                hammer_opt.Close()
+                logger.info("锤形优化工具已彻底关闭。")

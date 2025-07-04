@@ -80,7 +80,45 @@ class TestMeritFunctionEditor(unittest.TestCase):
         operands = self.mf_editor.list_operands()
         operand_types = [op['type'] for op in operands]
         self.assertNotIn('TOTR', operand_types)
+# 在 TestMeritFunctionEditor 类中，添加以下两个新的测试方法：
 
+    def test_08_run_global_optimization(self):
+        """测试全局优化功能"""
+        # 1. 使用向导建立一个适合全局优化的评价函数
+        self.mf_editor.use_optimization_wizard('default')
+        
+        # 2. 确保有足够多的变量供全局优化探索
+        lde = self.zos_manager.TheSystem.LDE
+        for i in range(1, 6): # 将前5个面的曲率和厚度都设为变量
+            lde.GetSurfaceAt(i).RadiusCell.MakeSolveVariable()
+            lde.GetSurfaceAt(i).ThicknessCell.MakeSolveVariable()
+            
+        # 3. 运行全局优化 (为了快速测试，只运行很短的时间)
+        result = self.mf_editor.run_global_optimization(timeout_seconds=5, save_top_n=1)
+        
+        # 4. 验证结果
+        self.assertTrue(result.get('success', False), f"全局优化应成功，但失败了: {result.get('error')}")
+        self.assertIn('top_results', result, "结果应包含top_results列表")
+        # 更好的做法是检查评价函数是否有所改善
+        self.assertLess(result['top_results'][0], result['initial_merit'], "全局优化后评价函数值应减小")
+
+    def test_09_run_hammer_optimization(self):
+        """测试锤形优化功能"""
+        # 1. 使用向导建立评价函数
+        self.mf_editor.use_optimization_wizard('default')
+        
+        # 2. 设置变量
+        lde = self.zos_manager.TheSystem.LDE
+        lde.GetSurfaceAt(2).RadiusCell.MakeSolveVariable()
+        lde.GetSurfaceAt(4).RadiusCell.MakeSolveVariable()
+            
+        # 3. 运行锤形优化 (同样只运行很短时间)
+        result = self.mf_editor.run_hammer_optimization(timeout_seconds=5)
+        
+        # 4. 验证结果
+        self.assertTrue(result.get('success', False), f"锤形优化应成功，但失败了: {result.get('error')}")
+        self.assertIn('final_merit', result, "结果应包含最终评价值")
+        self.assertLess(result['final_merit'], result['initial_merit'], "锤形优化后评价函数值应减小")
 
 if __name__ == '__main__':
     unittest.main()
