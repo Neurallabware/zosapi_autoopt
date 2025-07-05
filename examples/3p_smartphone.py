@@ -27,7 +27,7 @@ def main():
         raise ConnectionError("未能连接到 Zemax OpticStudio，请先打开软件。")
     # 创建一个唯一的输出文件夹
     run_timestamp = time.strftime("%Y%m%d-%H%M%S")
-    output_dir = os.path.join(project_root, "output", f"LensDesign_{run_timestamp}")
+    output_dir = os.path.join(project_root, "output", f"3p_smartphone_{run_timestamp}")
     os.makedirs(output_dir, exist_ok=True)
     logging.info(f"所有设计文件将保存在: {output_dir}")
     # 新建一个空文件作为起点
@@ -66,12 +66,14 @@ def main():
     # --- 步骤 3: 构建评价函数 ---
     logging.info("--- 步骤 3: 构建评价函数 ---")
     mf_editor.use_optimization_wizard('rms_spot', rings=3, glass_min_center=0.3, glass_min_edge=0.3, air_max_center=0.05, air_min_edge=0.05)
+    mf_editor.add_operand(Op.BLNK)
     mf_editor.add_operand(Op.EFFL, target=3.27, weight=1, params={2: 2})
     mf_editor.add_operand(Op.TOTR, target=4.0, weight=1)
-    mf_editor.add_operand(Op.RAID, target=32.0, weight=0, params={1:10,2:2,3:0.0,4:1.0,5:0.0,6:0.0})
-    mf_editor.add_operand(Op.DIMX, target=0.03, weight=0, params={1:0,2:2,3:0})
-    mf_editor.add_operand(Op.OPLT, target=32.0, weight=1, params={1:5})
-    mf_editor.add_operand(Op.OPLT, target=32.0, weight=1, params={1:2})
+    mf_editor.add_operand(Op.RAID, target=32.0, weight=0, params={2: 10, 3: 2, 5: 1.0})
+    mf_editor.add_operand(Op.DIMX, target=0.03, weight=0, params={2: 0, 3: 2, 4: 0})
+    mf_editor.add_operand(Op.OPLT, target=32.0, weight=1, params={2: 5})
+    mf_editor.add_operand(Op.OPLT, target=32.0, weight=1, params={2: 2})
+    
     zos_manager.save_file(os.path.join(output_dir, "Step3_Merit_Function.zos"))
     # --- 步骤 4: 全局优化 ---
     logging.info("--- 步骤 4: 全局优化寻找初始结构 ---")

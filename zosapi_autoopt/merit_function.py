@@ -201,21 +201,18 @@ class MeritFunctionEditor:
         params: Dict[int, Any] = None
     ) -> Any:
         """
-        添加一个操作数，使用直接参数字典来精确设置单元格。
-
-        这是最可靠、最透明的方式，您需要参照Zemax操作数手册来指定参数。
-
+        添加一个操作数，并根据传入值的Python类型来选择API调用。
         Args:
             operand_type (str): 操作数类型，如 'TOTR', 'EFFL'。
             target (float): 目标值。
             weight (float): 权重。
-            params (Dict[int, Any], optional):
+            params (Dict[int, Any], optional): 
                 一个字典，用于直接设置单元格。
-                键是单元格编号(int)，值是要设置的数据(int, float, str)。
-                示例: {2: 1, 3: 5}  # 将1填入#2单元格, 5填入#3单元格
+                键是单元格编号(int)，值是要设置的数据(int, float)。
+                示例: {2: 5, 3: 12.345}
+                注意：操作数的第一个参数index从2开始！！！
         """
         new_operand = self.TheMFE.AddOperand()
-
         operand_type_enum = getattr(self.ZOSAPI.Editors.MFE.MeritOperandType, operand_type)
         new_operand.ChangeType(operand_type_enum)
         new_operand.Target = target
@@ -224,15 +221,14 @@ class MeritFunctionEditor:
         if params:
             for cell_index, value in params.items():
                 cell = new_operand.GetCellAt(cell_index)
-                if isinstance(value, int):
-                    cell.IntegerValue = value
-                elif isinstance(value, float):
-                    cell.DoubleValue = value
-                elif isinstance(value, str):
-                    cell.StringValue = value
-                else:
-                    logger.warning(f"参数单元格 {cell_index} 的值类型未知，无法设置。")
 
+                if isinstance(value, float):
+                    cell.DoubleValue = value
+                elif isinstance(value, int):
+                    cell.IntegerValue = value
+                else:
+                     logger.warning(f"参数单元格 {cell_index} 的值类型未知 ({type(value)})，无法设置。")
+        
         logger.info(f"成功添加操作数: {operand_type}")
         return new_operand
     
@@ -243,10 +239,10 @@ class MeritFunctionEditor:
                 self.TheMFE.RemoveOperandAt(2)
             if self.TheMFE.NumberOfOperands == 1:
                 op1 = self.TheMFE.GetOperandAt(1)
-                op1.ChangeType(self.ZOSAPI.Editors.MFE.MeritOperandType.CONF)
+                op1.ChangeType(self.ZOSAPI.Editors.MFE.MeritOperandType.BLNK)
             elif self.TheMFE.NumberOfOperands == 0:
-                self.TheMFE.AddOperand().ChangeType(self.ZOSAPI.Editors.MFE.MeritOperandType.CONF)
-            logger.info("评价函数已清空并重置为单个CONF操作数。")
+                self.TheMFE.AddOperand().ChangeType(self.ZOSAPI.Editors.MFE.MeritOperandType.BLNK)
+            logger.info("评价函数已清空并重置为单个BLNK操作数。")
         except Exception as e:
             logger.error(f"清空评价函数时出错: {str(e)}")
             raise
