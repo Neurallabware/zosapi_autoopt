@@ -129,6 +129,8 @@ layout_analyzer.export_cross_section(
 layout_analyzer.export_shaded_model("output/layout_3D.png")
 ```
 
+![05c6a72c23724665377b4607d17b6b5](https://pppppall.oss-cn-guangzhou.aliyuncs.com/undefined05c6a72c23724665377b4607d17b6b5.png)
+
 -----
 
 ## 环境要求 | Requirements
