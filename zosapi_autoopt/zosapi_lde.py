@@ -204,75 +204,113 @@ class LensDesignManager:
     
     # === 表面属性设置 ===
     
-    def set_surface_type(self, surface_pos: int, surface_type: str) -> bool:
+    def set_surface_type(self, surface_pos: int, surface_type: str):
         """
-        设置表面类型
-        
+        设置表面类型，使用全面且准确的映射字典。
+
         Args:
-            surface_pos: 表面位置
-            surface_type: 表面类型 (standard, conic, aspheric, toroidal 等)
-            
-        Returns:
-            是否设置成功
+            surface_pos (int): 表面位置。
+            surface_type (str): 表面类型的用户友好名称 (小写)。
         """
-        try:
-            surface = self.get_surface(surface_pos)
+        surface_type_mapping = {
+            # --- Standard & General ---
+            'standard': 'Standard',
+            'paraxial': 'Paraxial',
+            'coordinate_break': 'CoordinateBreak',
+            'dummy': 'Standard', # Dummy is a standard surface with no optical properties
             
-            # 映射表面类型 - 使用动态获取方式适应不同版本
-            surface_type_mapping = {
-                'standard': 'Standard',
-                'conic': 'EvenAspheric',
-                'aspheric': 'EvenAspheric',
-                'toroidal': 'Toroidal',
-                'coordinate_break': 'CoordinateBreak',
-                'paraxial': 'Paraxial',
-                'grid_sag': 'GridSag',
-                'zernike': 'ZernikeSag'  # 某些版本可能没有此类型
-            }
+            # --- Aspheric Surfaces (非球面) ---
+            'evenaspheric': 'EvenAspheric',
+            'oddaspheric': 'OddAspheric',
+            'qtypeasphere': 'QTypeAsphere',
+            'conic': 'EvenAspheric', # Conic is a property, but usually set on an aspheric surface
+            'aspheric': 'EvenAspheric', # Common alias
+            'toroidal': 'Toroidal',
+            'polynomial': 'Polynomial',
+            'zernikesag': 'ZernikeSag',
+            'extendedasphere': 'ExtendedAsphere',
+            'superconic': 'Superconic',
+            'cubicsp': 'CubicSpline',
+            'aspherictoroid': 'AsphericToroid',
             
-            if surface_type not in surface_type_mapping:
-                raise ValueError(f"不支持的表面类型: {surface_type}")
+            # --- Diffractive & Grating (衍射与光栅) ---
+            'binaryoptic1': 'BinaryOptic1',
+            'binaryoptic2': 'BinaryOptic2',
+            'diffractiongrating': 'DiffractionGrating',
+            'hologram1': 'Hologram1',
+            'hologram2': 'Hologram2',
+            'toroidalhologram': 'ToroidalHologram',
+
+            # --- Grid Based & Freeform ---
+            'gridsag': 'GridSag',
+            'gridphasesag': 'GridPhase',
             
-            # 动态获取类型对象，如果不存在则抛出友好的错误
-            try:
-                type_name = surface_type_mapping[surface_type]
-                type_value = getattr(self.ZOSAPI.Editors.LDE.SurfaceType, type_name)
-            except AttributeError:
-                # 尝试更通用的方式获取类型
-                if surface_type == 'aspheric' or surface_type == 'conic':
-                    # 几乎所有版本都支持EvenAspheric
-                    type_value = getattr(self.ZOSAPI.Editors.LDE.SurfaceType, 'EvenAspheric')
-                else:
-                    raise ValueError(f"您的Zemax版本不支持表面类型: {type_name}")
+            # --- Others ---
+            'fresnel': 'Fresnel',
+            'variable': 'Variable',
+            'tiltsurface': 'Tilted',
+            # ... and many more could be added as needed
+        }
+        
+        # 将输入统一转为小写，以便不区分大小写地查找
+        normalized_surface_type = surface_type.lower().replace(" ", "").replace("_", "")
+
+        if normalized_surface_type not in surface_type_mapping:
+            raise ValueError(
+                f"不支持的表面类型: '{surface_type}'. "
+                f"支持的类型包括: {list(surface_type_mapping.keys())}"
+            )
             
-            type_setting = surface.GetSurfaceTypeSettings(type_value)
-            surface.ChangeType(type_setting)
-            
-            logger.info(f"设置表面 {surface_pos} 的类型为 {surface_type}")
-            return True
-        except Exception as e:
-            logger.error(f"设置表面类型失败: {str(e)}")
-            raise
+        api_type_name = surface_type_mapping[normalized_surface_type]
+        
+        surface = self.get_surface(surface_pos)
+        type_enum = getattr(self.ZOSAPI.Editors.LDE.SurfaceType, api_type_name)
+        type_settings = surface.GetSurfaceTypeSettings(type_enum)
+        surface.ChangeType(type_settings)
+        
+        logger.info(f"成功将表面 {surface_pos} 的类型设置为: {api_type_name}")
     
-    def set_conic(self, surface_pos: int, conic: float) -> bool:
+    def set_conic(self, surface_pos: int, conic_value: float):
         """
-        设置表面锥面系数
-        
+        精确地设置表面的锥面系数 (Conic Constant)。
+
         Args:
-            surface_pos: 表面位置
-            conic: 锥面系数
-            
-        Returns:
-            是否设置成功
+            surface_pos (int): 表面位置。
+            conic_value (float): 锥面系数值。
         """
-        try:
-            surface = self.get_surface(surface_pos)
-            surface.Conic = conic
-            logger.info(f"设置表面 {surface_pos} 的锥面系数为 {conic}")
-            return True
-        except Exception as e:
-            logger.error(f"设置锥面系数失败: {str(e)}")
-            raise
+        surface = self.get_surface(surface_pos)
+        surface.Conic = conic_value
+        logger.info(f"成功将表面 {surface_pos} 的锥面系数设置为: {conic_value}")
+
+    def set_aspheric_coefficients(self, surface_pos: int, coefficients: Dict[int, float]):
+        """
+        以智能、安全的方式设置非球面系数。
+
+        Args:
+            surface_pos (int): 表面位置。
+            coefficients (Dict[int, float]): 一个字典，键是偶次幂的阶数 (4, 6, 8...), 
+                                             值是对应的非球面系数值。
+                                             示例: {4: 1.2e-5, 6: -3.4e-8, 8: 5.6e-11}
+        """
+        surface = self.get_surface(surface_pos)
+        
+        for order, value in coefficients.items():
+            # 必须是大于等于4的偶数阶
+            if order < 4 or order % 2 != 0:
+                logger.warning(f"跳过无效的非球面阶数: {order}。只接受>=4的偶数阶。")
+                continue
+            
+            # 公式: param_index = (order / 2) - 1
+            param_index = int(order / 2) - 1
+            
+            # 使用API的枚举来获取正确的参数列，确保健壮性
+            param_column = self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1 + param_index
+            
+            cell = surface.GetCellAt(param_column)
+            cell.DoubleValue = value
+            logger.info(f"  - 已设置表面 {surface_pos} 的 {order} 阶非球面系数 (Par{param_index + 1}) 为: {value}")
+            
+        logger.info(f"完成对表面 {surface_pos} 的非球面系数设置。")
     
     def set_tilt_decenter(self, surface_pos: int, 
                          tilt_x: float = 0.0, 
@@ -392,46 +430,6 @@ class LensDesignManager:
             
         except Exception as e:
             logger.error(f"设置光阑失败: {str(e)}")
-            raise
-    
-    def set_aspheric_coefficients(self, surface_pos: int, coefficients: List[float]) -> bool:
-        """
-        设置非球面系数
-        
-        Args:
-            surface_pos: 表面位置
-            coefficients: 非球面系数列表 [A4, A6, A8, ...]
-            
-        Returns:
-            是否设置成功
-        """
-        try:
-            surface = self.get_surface(surface_pos)
-            
-            # 检查表面类型是否为非球面 - 使用更可靠的方式
-            is_aspheric = False
-            try:
-                # 方法1: 通过Cell获取类型
-                type_cell = surface.GetCellAt(self.ZOSAPI.Editors.LDE.SurfaceColumn.Type)
-                if type_cell:
-                    type_value = str(type_cell.Value).lower()
-                    is_aspheric = ('aspheric' in type_value or 'even' in type_value)
-            except:
-                # 如果无法获取类型，假设可以设置非球面系数
-                is_aspheric = True
-            
-            if not is_aspheric:
-                logger.warning(f"表面 {surface_pos} 可能不是非球面类型，但仍将尝试设置非球面系数")
-            
-            # 设置非球面系数
-            for i, coef in enumerate(coefficients):
-                param_index = i + 1  # 参数索引从1开始
-                surface.GetCellAt(self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1 + i).DoubleValue = coef
-            
-            logger.info(f"设置表面 {surface_pos} 的非球面系数")
-            return True
-        except Exception as e:
-            logger.error(f"设置非球面系数失败: {str(e)}")
             raise
     
     # === 特殊操作 ===
@@ -591,42 +589,53 @@ class LensDesignManager:
         logger.info("开始批量设置锥面系数为变量...")
         return self._set_all_parameters_as_variables('conic', start_surface, end_surface, exclude_surfaces, status)
     
-    def set_all_aspheric_as_variables(self, start_surface: int = 1, end_surface: int = None, 
-                                       exclude_surfaces: List[int] = None, order: int = 4,
-                                       status: bool = True) -> bool:
+    def set_aspheric_variables(
+        self, 
+        surface_pos: int, 
+        orders: List[int] = [4,6], 
+        set_conic_as_variable: bool = False
+    ):
         """
-        批量设置所有表面的非球面各阶系数为变量 (已优化)。
-        """
-        logger.info(f"开始批量设置非球面系数为变量 (最高到 {order*2+2} 阶)...")
-        surface_count = self.LDE.NumberOfSurfaces
-        if end_surface is None or end_surface >= surface_count:
-            end_surface = surface_count - 1
+        精确地将指定阶数的非球面系数设置为变量，并可选择是否将锥面系数也设为变量。
 
-        if exclude_surfaces is None:
-            exclude_surfaces = []
+        Args:
+            surface_pos (int): 表面位置。
+            orders (List[int], optional): 一个包含要设为变量的偶次幂阶数的列表。
+                                          示例: [4, 6, 8] 只会将4阶、6阶、8阶系数设为变量。
+                                          默认为 None，即不设置任何高阶系数。
+            set_conic_as_variable (bool): 是否将该表面的锥面系数(Conic)也设置为变量。
+        """
+        surface = self.get_surface(surface_pos)
         
-        success_count = 0
-        for i in range(start_surface, end_surface + 1):
-            if i in exclude_surfaces:
-                continue
-            
-            surface = self.get_surface(i)
-            # 循环设置4、6、8...阶系数
-            for j in range(order):
+        # 1. 设置锥面系数变量
+        if set_conic_as_variable:
+            try:
+                surface.ConicCell.MakeSolveVariable()
+                logger.info(f"已将表面 {surface_pos} 的锥面系数设为变量。")
+            except Exception as e:
+                logger.error(f"为表面 {surface_pos} 设置锥面系数变量失败: {e}")
+
+        # 2. 设置指定阶数的非球面系数变量
+        if orders:
+            for order in orders:
+                # 必须是大于等于4的偶数阶
+                if order < 4 or order % 2 != 0:
+                    logger.warning(f"跳过无效的非球面阶数: {order}。只接受>=4的偶数阶。")
+                    continue
+                
+                # 核心逻辑：将阶数映射到正确的Param#
+                # 公式: param_index = (order / 2) - 1
+                param_index = int(order / 2) - 1
+                
                 try:
-                    param_column = self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1 + j
-                    # 直接尝试将单元格设为变量
-                    _, is_var, _ = self.set_cell_as_variable(surface, param_column, f"表面 {i} 的非球面系数 P{j+1}")
-                    if is_var:
-                        success_count += 1
-                except Exception:
-                    # 如果失败，很可能因为这个面不是非球面或没有这么多参数，这是正常情况。
-                    # 我们只需要跳出对当前面的循环即可。
-                    logger.debug(f"无法为表面 {i} 设置第 {j+1} 个非球面系数，已跳过此表面。")
-                    break 
-        
-        logger.info(f"完成了非球面系数的批量变量设置，共成功设置 {success_count} 个参数。")
-        return success_count > 0    
+                    param_column = self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1 + param_index
+                    cell = surface.GetCellAt(param_column)
+                    cell.MakeSolveVariable()
+                    logger.info(f"  - 已将表面 {surface_pos} 的 {order} 阶非球面系数 (Par{param_index + 1}) 设为变量。")
+                except Exception as e:
+                    logger.error(f"为表面 {surface_pos} 的 {order} 阶系数设置变量失败: {e}")
+
+
 
 
 

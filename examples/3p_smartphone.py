@@ -78,25 +78,25 @@ def main():
     # --- 步骤 4: 全局优化 ---
     logging.info("--- 步骤 4: 全局优化寻找初始结构 ---")
     global_opt_dir = os.path.join(output_dir, "Global_Opt")
-    mf_editor.run_global_optimization(output_folder=global_opt_dir, timeout_seconds=600, cores=20)
+    mf_editor.run_global_optimization(output_folder=global_opt_dir, timeout_seconds=60, cores=50)
     logging.info("  - 全局优化完成，已加载最优结果。")
     zos_manager.save_file(os.path.join(output_dir, "Step4_Global_Optimized.zos"))
     # --- 步骤 5: 非球面优化 ---
     logging.info("--- 步骤 5: 转换为非球面并进行优化 ---")
-    for i in [2, 3, 4]:
-        lde_manager.set_surface_type(i, 'aspheric')
+    for i in [2, 3, 4, 5, 6, 7]:
+        lde_manager.set_surface_type(i, 'evenaspheric')
         lde_manager.set_variable(i, 'conic')
     logging.info("  - 正在进行初步非球面优化...")
     mf_editor.run_local_optimization(timeout_seconds=300)
     logging.info("  - 正在逐个优化高阶非球面系数...")
-    for i in [2, 3, 4]:
-        lde_manager.set_all_aspheric_as_variables(start_surface=i, end_surface=i, order=6)
+    for i in [2, 3, 4, 5, 6, 7]:
+        lde_manager.set_aspheric_variables(surface_pos=i, orders=[4])
         mf_editor.run_local_optimization(timeout_seconds=300)
     logging.info("  - 开始长时间锤形优化...")
     lde_manager.set_all_radii_as_variables(exclude_surfaces=[0, 1, 6])
-    lde_manager.set_all_thickness_as_variables(exclude_surfaces=[0, 1, 5, 6])
-    lde_manager.set_all_aspheric_as_variables(start_surface=2, end_surface=4, order=6)
-    mf_editor.run_hammer_optimization(timeout_seconds=1800, cores=20)
+    # lde_manager.set_all_thickness_as_variables(exclude_surfaces=[0, 1, 5, 6])
+    # lde_manager.set_aspheric_variables(surface_pos=3, orders=[6])
+    mf_editor.run_hammer_optimization(timeout_seconds=120, cores=50)
     zos_manager.save_file(os.path.join(output_dir, "Step5_Aspheric_Optimized.zos"))
     # --- 步骤 6: 细节优化 ---
     logging.info("--- 步骤 6: 精细优化 ---")
