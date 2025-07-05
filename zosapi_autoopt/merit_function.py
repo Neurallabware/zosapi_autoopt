@@ -435,15 +435,32 @@ class MeritFunctionEditor:
         if top_results:
             min_merit_value = min(top_results)
             best_result_index = top_results.index(min_merit_value) + 1
-            best_file_name = f"GLOPT_0000_{best_result_index:03d}.zos"
-            best_file_path = os.path.join(output_folder, best_file_name)
+            
+            best_file_name = None
+            # 构造期望的文件后缀，例如 "_001.zos"
+            expected_suffix = f"_{best_result_index:03d}.zos"
+            
+            # 遍历输出文件夹中的所有文件
+            for filename in os.listdir(output_folder):
+                # 检查文件是否以 "GLOPT_" 开头并以我们期望的后缀结束
+                if filename.startswith("GLOPT_") and filename.endswith(expected_suffix):
+                    best_file_name = filename
+                    break  # 找到后立即退出循环
 
-            if os.path.exists(best_file_path):
-                self.TheSystem.LoadFile(best_file_path, False)
-                logger.info(f"全局优化完成。最优解(第{best_result_index}个)已加载，MF: {min_merit_value:.6f}")
+            if best_file_name:
+                best_file_path = os.path.join(output_folder, best_file_name)
+                # 理论上文件应该存在，但再次检查以确保稳健性
+                if os.path.exists(best_file_path):
+                    self.TheSystem.LoadFile(best_file_path, False)
+                    logger.info(f"全局优化完成。最优解(第{best_result_index}个, 文件: {best_file_name})已加载，MF: {min_merit_value:.6f}")
+                else:
+                    # 这个情况理论上不会发生，因为我们已经从目录中找到了文件名
+                    logger.error(f"代码逻辑错误：找到了文件名 {best_file_name} 但文件路径 {best_file_path} 不存在！")
+                    self.TheSystem.LoadFile(working_file_path, False)
             else:
-                logger.error(f"最优结果文件 {best_file_path} 未找到！")
+                logger.error(f"无法在目录 {output_folder} 中找到与最优结果索引 {best_result_index} 匹配的文件。")
                 self.TheSystem.LoadFile(working_file_path, False)
+
         else:
             logger.warning("全局优化未找到任何有效结果。")
 
