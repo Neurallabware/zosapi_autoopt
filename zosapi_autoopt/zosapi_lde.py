@@ -303,10 +303,10 @@ class LensDesignManager:
             # 公式: param_index = (order / 2) - 1
             param_index = int(order / 2) - 1
             
-            # 使用API的枚举来获取正确的参数列，确保健壮性
-            param_column = self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1 + param_index
+            # Convert enum to integer and add the offset to avoid enum arithmetic issues
+            param_column_int = int(self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1) + param_index
             
-            cell = surface.GetCellAt(param_column)
+            cell = surface.GetCellAt(param_column_int)
             cell.DoubleValue = value
             logger.info(f"  - 已设置表面 {surface_pos} 的 {order} 阶非球面系数 (Par{param_index + 1}) 为: {value}")
             
@@ -628,8 +628,9 @@ class LensDesignManager:
                 param_index = int(order / 2) - 1
                 
                 try:
-                    param_column = self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1 + param_index
-                    cell = surface.GetCellAt(param_column)
+                    # Convert enum to integer and add the offset to avoid enum arithmetic issues
+                    param_column_int = int(self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1) + param_index
+                    cell = surface.GetCellAt(param_column_int)
                     cell.MakeSolveVariable()
                     logger.info(f"  - 已将表面 {surface_pos} 的 {order} 阶非球面系数 (Par{param_index + 1}) 设为变量。")
                 except Exception as e:

@@ -15,6 +15,9 @@ from zosapi_autoopt.zosapi_core import ZOSAPIManager
 from zosapi_autoopt.zosapi_system import SystemParameterManager
 from zosapi_autoopt.zosapi_lde import LensDesignManager
 from zosapi_autoopt.merit_function import MeritFunctionEditor
+from zosapi_autoopt import ZOSPlotter
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 def main():
     """
@@ -37,6 +40,7 @@ def main():
     sys_param_manager = SystemParameterManager(zos_manager)
     lde_manager = LensDesignManager(zos_manager)
     mf_editor = MeritFunctionEditor(zos_manager)
+    plotter = ZOSPlotter(zos_manager)
     Op = mf_editor.Operands
     # --- 步骤 1: 输入系统参数 ---
     logging.info("--- 步骤 1: 设置系统参数 ---")
@@ -52,13 +56,22 @@ def main():
     # --- 步骤 2: 添加平板并设为变量 ---
     logging.info("--- 步骤 2: 搭建初始几何结构 ---")
     lde_manager.set_stop_surface(1)
+    # add plate, 3p + 1 plate
     for _ in range(8): lde_manager.insert_surface(2)
+    
+    # 设置光学表面类型和材料
     for i in range(1, 4): 
         lde_manager.set_material(2*i, "PMMA")
         lde_manager.set_substitute_solve(2*i, 'PLASTIC')
     lde_manager.set_material(8, "H-K9L")
+    
+    
+    # not the last
     lde_manager.set_thickness(8,0.6)
     lde_manager.set_thickness(9,0.1)
+    
+    
+    # set radis and thickness as variables
     for i in range(2, 8): lde_manager.set_variable(i, 'radius')
     for i in range(1, 8): lde_manager.set_variable(i, 'thickness')
 
@@ -104,6 +117,65 @@ def main():
     logging.info("  - 正在进行最后的局部和锤形优化...")
     mf_editor.run_local_optimization(timeout_seconds=600)
     mf_editor.run_hammer_optimization(timeout_seconds=1200)
+    
+    # --- 步骤 7: 生成分析报告和图表 ---
+    logging.info("--- 步骤 7: 生成最终分析报告和图表 (PDF) ---")
+    
+    # 创建PDF文件来保存所有图表
+    pdf_path = os.path.join(output_dir, "Final_Analysis_Report.pdf")
+    
+    with PdfPages(pdf_path) as pdf:
+        logging.info("  - 生成光斑图...")
+        try:
+            plotter.plot_spots(show_airy_disk=True, title="最终系统光斑图")
+            pdf.savefig(plt.gcf(), bbox_inches='tight', dpi=300)
+            plt.close()
+            logging.info("    ✓ 光斑图已保存")
+        except Exception as e:
+            logging.error(f"    ✗ 光斑图生成失败: {e}")
+            plt.close()
+        
+        logging.info("  - 生成MTF图...")
+        try:
+            plotter.plot_mtf(title="最终系统MTF")
+            pdf.savefig(plt.gcf(), bbox_inches='tight', dpi=300)
+            plt.close()
+            logging.info("    ✓ MTF图已保存")
+        except Exception as e:
+            logging.error(f"    ✗ MTF图生成失败: {e}")
+            plt.close()
+        
+        logging.info("  - 生成光线扇图...")
+        try:
+            plotter.plot_rayfan(title="最终系统光线扇图")
+            pdf.savefig(plt.gcf(), bbox_inches='tight', dpi=300)
+            plt.close()
+            logging.info("    ✓ 光线扇图已保存")
+        except Exception as e:
+            logging.error(f"    ✗ 光线扇图生成失败: {e}")
+            plt.close()
+        
+        logging.info("  - 生成场曲与畸变图...")
+        try:
+            plotter.plot_field_curvature_distortion(title="最终系统场曲与畸变")
+            pdf.savefig(plt.gcf(), bbox_inches='tight', dpi=300)
+            plt.close()
+            logging.info("    ✓ 场曲与畸变图已保存")
+        except Exception as e:
+            logging.error(f"    ✗ 场曲与畸变图生成失败: {e}")
+            plt.close()
+        
+        logging.info("  - 生成综合分析图...")
+        try:
+            plotter.analyze_and_plot_system(title="最终系统综合分析")
+            pdf.savefig(plt.gcf(), bbox_inches='tight', dpi=300)
+            plt.close()
+            logging.info("    ✓ 综合分析图已保存")
+        except Exception as e:
+            logging.error(f"    ✗ 综合分析图生成失败: {e}")
+            plt.close()
+    
+    logging.info(f"  - 所有图表已保存至PDF文件: {pdf_path}")
     
     # --- 完成 ---
     final_file_path = os.path.join(output_dir, "Final_Lens_Design.zos")
