@@ -40,6 +40,7 @@ class MeritFunctionEditor:
         CVLT='CVLT'; SCRV='SCRV'; DENC='DENC'; DENF='DENF'; INDX='INDX'; VOLU='VOLU'
         CIGT='CIGT'; CILT='CILT'; CIVA='CIVA'; CEGT='CEGT'; CELT='CELT'; CEVA='CEVA'
         MNRE='MNRE'; MXRE='MXRE'; MNRI='MNRI'; MXRI='MXRI'; WLEN='WLEN'; ZTHI='ZTHI'
+        FTLT='FTLT'; FTGT='FTGT'
     #class Performance:
         MTFS='MTFS'; MTFT='MTFT'; MTFA='MTFA'; MTFD='MTFD'; MTFN='MTFN'; MTFX='MTFX'
         MTHA='MTHA'; MTHS='MTHS'; MTHT='MTHT'; MTHN='MTHN'; MTHX='MTHX'; IMSF='IMSF'

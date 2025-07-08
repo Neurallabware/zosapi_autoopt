@@ -491,7 +491,7 @@ class LensDesignManager:
         将单个表面参数设置为变量（简化版）。
 
         Args:
-            surface_pos: 表面位置
+            surface_pos: 表面位置, int
             param_name: 参数名称，支持 'radius', 'thickness', 'conic' 等
             status: 变量状态，True表示启用，False表示禁用
             
@@ -529,7 +529,7 @@ class LensDesignManager:
         我们只使用最稳定可靠的 MakeSolveVariable 方法。
         """
         try:
-            cell = surface.GetCellAt(column_type)
+            cell = surface.GetCellAt(int(column_type))
             cell.MakeSolveVariable()
             solver_data = cell.GetSolveData()
             solve_type = solver_data.Type if solver_data else None
@@ -635,7 +635,6 @@ class LensDesignManager:
                     logger.info(f"  - 已将表面 {surface_pos} 的 {order} 阶非球面系数 (Par{param_index + 1}) 设为变量。")
                 except Exception as e:
                     logger.error(f"为表面 {surface_pos} 的 {order} 阶系数设置变量失败: {e}")
-
 
 
 
@@ -953,6 +952,7 @@ class LensDesignManager:
         except:
             # Fallback: try with enum directly (for compatibility with different ZOS-API versions)
             return surface.GetCellAt(column_enum)
+
 
     def set_pickup_solve(self, surface_pos: int, param_name: str, from_surface: int, scale: float = 1.0, offset: float = 0.0, from_column: str = None):
         """设置拾取 (Pickup) 求解器。"""

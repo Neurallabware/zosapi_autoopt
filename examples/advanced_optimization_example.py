@@ -21,7 +21,10 @@ if project_root not in sys.path:
 from zosapi_autoopt import (
     ZOSAPIManager, 
     MeritFunctionEditor, 
-    ZOSPlotter
+    plot_spots, 
+    plot_mtf, 
+    plot_rayfan,
+    analyze_and_plot_system
 )
 from zosapi_autoopt.config import create_output_directory
 
@@ -39,8 +42,11 @@ def advanced_optimization_strategy():
     
     try:
         # 打开示例文件 (使用 Double Gauss 作为示例)
-        sample_file = r".\sample_file\Objectives\Double Gauss 28 degree field.zos"
-
+        sample_file = r"C:\Program Files\ANSYS Inc\v242\Zemax OpticStudio\Samples\Sequential\Objectives\Double Gauss 28 degree field.zos"
+        # 如果文件不存在，使用备用路径
+        if not os.path.exists(sample_file):
+            sample_file = r"C:\Program Files\Zemax OpticStudio\Samples\Sequential\Objectives\Double Gauss 28 degree field.zmx"
+        
         print(f"打开示例文件: {sample_file}")
         zos_manager.open_file(sample_file)
         
@@ -53,9 +59,6 @@ def advanced_optimization_strategy():
         print("创建评价函数编辑器...")
         mf_editor = MeritFunctionEditor(zos_manager)
         
-        # 创建绘图器实例
-        plotter = ZOSPlotter(zos_manager)
-        
         # 获取初始系统状态
         print("初始系统状态:")
         initial_merit = mf_editor.get_current_merit_value()
@@ -63,7 +66,7 @@ def advanced_optimization_strategy():
         
         # 分析和绘制初始系统性能
         print("分析初始系统性能...")
-        plotter.analyze_and_plot_system(title="初始系统性能")
+        analyze_and_plot_system(zos_manager, title="初始系统性能")
         plt.savefig(os.path.join(output_dir, '1_initial_system_analysis.png'))
         plt.close()
         
@@ -144,7 +147,7 @@ def advanced_optimization_strategy():
             print(f"全局优化结果已保存至: {global_file}")
             
             # 分析全局优化后的系统
-            plotter.analyze_and_plot_system(title="全局优化后的系统性能")
+            analyze_and_plot_system(zos_manager, title="全局优化后的系统性能")
             plt.savefig(os.path.join(output_dir, '2_global_optimized_analysis.png'))
             plt.close()
         else:
@@ -170,7 +173,7 @@ def advanced_optimization_strategy():
             print(f"锤形优化结果已保存至: {hammer_file}")
             
             # 分析锤形优化后的系统
-            plotter.analyze_and_plot_system(title="锤形优化后的系统性能")
+            analyze_and_plot_system(zos_manager, title="锤形优化后的系统性能")
             plt.savefig(os.path.join(output_dir, '3_hammer_optimized_analysis.png'))
             plt.close()
         else:
@@ -198,24 +201,24 @@ def advanced_optimization_strategy():
             print(f"最终优化结果已保存至: {final_file}")
             
             # 分析最终优化后的系统
-            plotter.analyze_and_plot_system(title="最终优化后的系统性能")
+            analyze_and_plot_system(zos_manager, title="最终优化后的系统性能")
             plt.savefig(os.path.join(output_dir, '4_final_optimized_analysis.png'))
             plt.close()
             
             # 绘制单独的性能图
             print("\n生成详细性能分析图...")
             # 光斑图
-            plotter.plot_spots(show_airy_disk=True, title="最终系统光斑图")
+            plot_spots(zos_manager, show_airy_disk=True, title="最终系统光斑图")
             plt.savefig(os.path.join(output_dir, '5_final_spots.png'))
             plt.close()
             
             # MTF图
-            plotter.plot_mtf(title="最终系统MTF")
+            plot_mtf(zos_manager, title="最终系统MTF")
             plt.savefig(os.path.join(output_dir, '5_final_mtf.png'))
             plt.close()
             
             # 光线扇图
-            plotter.plot_rayfan(title="最终系统光线扇图")
+            plot_rayfan(zos_manager, title="最终系统光线扇图")
             plt.savefig(os.path.join(output_dir, '5_final_rayfan.png'))
             plt.close()
             
