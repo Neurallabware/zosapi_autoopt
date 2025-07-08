@@ -2,6 +2,9 @@
 /output/
 output/
 
+/local/
+
+
 # Python cache and compiled files
 __pycache__/
 *.pyc
@@ -37,6 +40,7 @@ PULL_REQUEST_TEMPLATE.md
 FINAL_PR_INSTRUCTIONS.md
 github_issue.md
 test_fix.py
+test_fixes.py
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
