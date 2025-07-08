@@ -234,15 +234,6 @@ def main():
     mf_editor.run_local_optimization(timeout_seconds=600)
     mf_editor.run_hammer_optimization(timeout_seconds=120)
     
-    # --- 完成 ---
-    final_file_path = os.path.join(output_dir, "Final_Lens_Design.zos")
-    zos_manager.save_file(final_file_path)
-    logging.info(f"--- 设计流程全部完成！最终文件已保存至: {final_file_path} ---")
-    if zos_manager and zos_manager.is_connected:
-        zos_manager.close()
-        logging.info("已断开与 Zemax 的连接。")
-
-
     # --- 步骤 7: 生成分析报告和图表 ---
     logging.info("--- 步骤 7: 生成最终分析报告和图表 (PDF) ---")
     
@@ -302,6 +293,13 @@ def main():
     
     logging.info(f"  - 所有图表已保存至PDF文件: {pdf_path}")
 
+    # --- 完成 ---
+    final_file_path = os.path.join(output_dir, "Final_Lens_Design.zos")
+    zos_manager.save_file(final_file_path)
+    logging.info(f"--- 设计流程全部完成！最终文件已保存至: {final_file_path} ---")
+    if zos_manager and zos_manager.is_connected:
+        zos_manager.close()
+        logging.info("已断开与 Zemax 的连接。")
 
 
 if __name__ == '__main__':
