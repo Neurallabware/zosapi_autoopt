@@ -31,6 +31,7 @@ __all__ = [
     "ZOSAPIManager",
     "ZOSAnalyzer", 
     "BatchAnalyzer",
+    "ZOSPlotter",
     "ZOSDataProcessor",
     "ZOSLayoutAnalyzer",
     "SystemParameterManager",
@@ -41,13 +42,6 @@ __all__ = [
     "create_zosapi_manager",
     "create_system_parameter_manager",
     "create_lens_design_manager",
-    
-    # 绘图函数
-    "plot_spots", 
-    "plot_rayfan", 
-    "plot_mtf", 
-    "plot_field_curvature_distortion",
-    "analyze_and_plot_system",
     
 ]
 
