@@ -217,12 +217,7 @@ def main():
     for i in aspheric_surfaces:
         lde_manager.set_aspheric_variables(surface_pos=i, orders=[10])
         mf_editor.run_local_optimization(timeout_seconds=300)
-        
-    for i in aspheric_surfaces:
-        lde_manager.set_aspheric_variables(surface_pos=i, orders=[4])
-        mf_editor.run_local_optimization(timeout_seconds=300)
-        
-        
+
     logging.info("  - 开始长时间锤形优化...")
     lde_manager.set_all_radii_as_variables(exclude_surfaces=[0, 1, 6])
     # lde_manager.set_all_thickness_as_variables(exclude_surfaces=[0, 1, 5, 6])
