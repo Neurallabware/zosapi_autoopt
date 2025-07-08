@@ -232,7 +232,7 @@ def main():
     
     logging.info("  - 正在进行最后的局部和锤形优化...")
     mf_editor.run_local_optimization(timeout_seconds=600)
-    mf_editor.run_hammer_optimization(timeout_seconds=120)
+    mf_editor.run_hammer_optimization(timeout_seconds=10000)
     
     # --- 步骤 7: 生成分析报告和图表 ---
     logging.info("--- 步骤 7: 生成最终分析报告和图表 (PDF) ---")
