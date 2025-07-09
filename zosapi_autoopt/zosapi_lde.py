@@ -984,7 +984,8 @@ class LensDesignManager:
 
     def set_substitute_solve(self, surface_pos: int, catalog: str):
         """在材料单元格上设置替代 (Substitute) 求解器。"""
-        cell = self._get_cell(surface_pos, 'material')
+        surface = self.get_surface(surface_pos)
+        cell = surface.MaterialCell
         solver = cell.CreateSolveType(self.ZOSAPI.Editors.SolveType.MaterialSubstitute)
         solver._S_MaterialSubstitute.Catalog = catalog
         cell.SetSolveData(solver)

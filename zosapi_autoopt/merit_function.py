@@ -15,24 +15,30 @@ class MeritFunctionEditor:
     class Operands:
         """
         内置的、分类完整的评价函数操作数常量库。
-        调用示例: mf_editor.add_operand(Op.Aberration.SPHA, wave=1, field=2)
+        调用示例: mf_editor.add_operand(Op.Aberration.SPHA, target=0.0, weight=1.0)
         """
-    #class Aberration:
+        # Aberration & Wavefront
         SPHA='SPHA'; COMA='COMA'; ASTI='ASTI'; FCUR='FCUR'; DIST='DIST'; AXCL='AXCL'
         LACL='LACL'; PTUX='PTUX'; PTUY='PTUY'; PSUX='PSUX'; PSUY='PSUY'; OPD='OPD'
         OPDM='OPDM'; OPDX='OPDX'; WAVE='WAVE'; ZERN='ZERN'; SPHD='SPHD'; SPHS='SPHS'
-        DPHS='DPHS'; DCRV='DCRV'; DSAG='DSAG'; DSLP='DSLP'; DIMX='DIMX'
-    #class Geometric:
+        DPHS='DPHS'; DCRV='DCRV'; DSAG='DSAG'; DSLP='DSLP'; DIMX='DIMX'; SCUR='SCUR'
+        SDRV='SDRV'; TSAG='TSAG'; PSLP='PSLP'; QSLP='QSLP'
+
+        # Geometric
         EFFL='EFFL'; EFLX='EFLX'; EFLY='EFLY'; EFLA='EFLA'; FNUM='FNUM'; EFNO='EFNO'
         ISFN='ISFN'; TOTR='TOTR'; TTHI='TTHI'; PLEN='PLEN'; PIMH='PIMH'; STHI='STHI'
         ENPP='ENPP'; EXPP='EXPP'; EPDI='EPDI'; CARD='CARD'; PMAG='PMAG'; AMAG='AMAG'
-        SFNO='SFNO'; TFNO='TFNO'; WFNO='WFNO'
-    #class Ray:
+        SFNO='SFNO'; TFNO='TFNO'; WFNO='WFNO'; HYLD='HYLD'
+
+        # Ray Tracing
         REAX='REAX'; REAY='REAY'; REAZ='REAZ'; REAR='REAR'; RAGX='RAGX'; RAGY='RAGY'
         RAGZ='RAGZ'; REAA='REAA'; REAB='REAB'; REAC='REAC'; RAID='RAID'; RAIN='RAIN'
         TRAC='TRAC'; NORX='NORX'; NORY='NORY'; NORZ='NORZ'; RENA='RENA'; RENB='RENB'
         RENC='RENC'; RETX='RETX'; RETY='RETY'; NORD='NORD'; TRAX='TRAX'; TRAY='TRAY'
-    #class Constraint:
+        TRAD='TRAD'; TRAE='TRAE'; TRAI='TRAI'; TRAN='TRAN'; TRAR='TRAR'; TRCX='TRCX'
+        TRCY='TRCY'; RGLA='RGLA'; RANG='RANG'; RRET='RRET'
+
+        # Physical Constraints
         MNCG='MNCG'; MXCG='MXCG'; MNEG='MNEG'; MXEG='MXEG'; MNCA='MNCA'; MXCA='MXCA'
         MNEA='MNEA'; MXEA='MXEA'; MNCT='MNCT'; MXCT='MXCT'; MNET='MNET'; MXET='MXET'
         PMCG='PMCG'; PMEG='PMEG'; TCVA='TCVA'; TCGT='TCGT'; TCLT='TCLT'; BLTH='BLTH'
@@ -40,30 +46,77 @@ class MeritFunctionEditor:
         CVLT='CVLT'; SCRV='SCRV'; DENC='DENC'; DENF='DENF'; INDX='INDX'; VOLU='VOLU'
         CIGT='CIGT'; CILT='CILT'; CIVA='CIVA'; CEGT='CEGT'; CELT='CELT'; CEVA='CEVA'
         MNRE='MNRE'; MXRE='MXRE'; MNRI='MNRI'; MXRI='MXRI'; WLEN='WLEN'; ZTHI='ZTHI'
-        FTLT='FTLT'; FTGT='FTGT'
-    #class Performance:
+        MNDT='MNDT'; MXDT='MXDT'; MNPD='MNPD'; MXPD='MXPD'; MNSD='MNSD'; MXSD='MXSD'
+        MNAB='MNAB'; MXAB='MXAB'; MNIN='MNIN'; MXIN='MXIN'; MCOG='MCOG'; MCOL='MCOL'
+        MCOV='MCOV'; DMGT='DMGT'; DMLT='DMLT'; DMVA='DMVA'; CENX='CENX'; CENY='CENY'
+        CMGT='CMGT'; CMLT='CMLT'; CMVA='CMVA'; CTGT='CTGT'; CTLT='CTLT'; COGT='COGT'
+        COLT='COLT'; COVA='COVA'
+
+        # Performance & Image Quality
         MTFS='MTFS'; MTFT='MTFT'; MTFA='MTFA'; MTFD='MTFD'; MTFN='MTFN'; MTFX='MTFX'
         MTHA='MTHA'; MTHS='MTHS'; MTHT='MTHT'; MTHN='MTHN'; MTHX='MTHX'; IMSF='IMSF'
         RELI='RELI'; RSCE='RSCE'; RSCH='RSCH'; RSRE='RSRE'; RSRH='RSRH'; RWCE='RWCE'
-        RWCH='RWCH'; RWRE='RWRE'; RWRH='RWRH'
-    #class Control:
+        RWCH='RWCH'; RWRE='RWRE'; RWRH='RWRH'; STRH='STRH'; BFSD='BFSD'; FOUC='FOUC'
+        
+        # Programming & Control
         CONF='CONF'; DMFS='DMFS'; OPGT='OPGT'; OPLT='OPLT'; OSGT='OSGT'; OSLT='OSLT'
         GTCE='GTCE'; GOTO='GOTO'; ENDX='ENDX'; BLNK='BLNK'; USYM='USYM'; ZPLM='ZPLM'
         UDOP='UDOP'; UDOC='UDOC'; OOFF='OOFF'; SUMM='SUMM'; PROD='PROD'; DIVI='DIVI'
         DIVB='DIVB'; SQRT='SQRT'; ABSO='ABSO'; LOGT='LOGT'; LOGE='LOGE'; SINE='SINE'
         COSI='COSI'; TANG='TANG'; ASIN='ASIN'; ACOS='ACOS'; ATAN='ATAN'; EXPD='EXPD'
-        MINN='MINN'; MAXX='MAXX'; CONS='CONS'
-    #class NonSequential:
+        MINN='MINN'; MAXX='MAXX'; CONS='CONS'; OSUM='OSUM'; OPVA='OPVA'
+
+        # Non-Sequential
         NSDD='NSDD'; NSDC='NSDC'; NSTR='NSTR'; NSST='NSST'; NSDE='NSDE'; NSDP='NSDP'
         NSRD='NSRD'; NSLT='NSLT'; NSTW='NSTW'; NSRW='NSRW'; NPAF='NPAF'; NSRM='NSRM'
-    #class Polarization:
+        NSRA='NSRA'
+
+        # Polarization
         POWR='POWR'; POWP='POWP'; POWF='POWF'; POPD='POPD'
-    #class Diffraction:
-        DIFF='DIFF'; DLTN='DLTN'; FOUC='FOUC'; POPD='POPD'; PROB='PROB'; STRH='STRH'
-        POPI='POPI'; FREZ='FREZ'; ERFP='ERFP'
-    #class GlobalCoord:
+
+        # Diffraction & Physical Optics
+        DIFF='DIFF'; DLTN='DLTN'; PROB='PROB'; POPI='POPI'; FREZ='FREZ'
+        ERFP='ERFP'; BSER='BSER'
+
+        # Global Coordinates
         GLCA='GLCA'; GLCB='GLCB'; GLCC='GLCC'; GLCX='GLCX'; GLCY='GLCY'; GLCZ='GLCZ'
-        GLCR='GLCR'
+        GLCR='GLCR'; GPSX='GPSX'; GPSY='GPSY'; GPRX='GPRX'; GPRY='GPRY'; GPRT='GPRT'
+
+        # Other
+        ABCD='ABCD'; ABGT='ABGT'; ABLT='ABLT'; ANAC='ANAC'; ANAR='ANAR'; ANAX='ANAX'
+        ANAY='ANAY'; ANCX='ANCX'; ANCY='ANCY'; BIOC='BIOC'; BIOD='BIOD'; BIPF='BIPF'
+        BSER='BSER'; CMFV='CMFV'; CNPX='CNPX'; CNPY='CNPY'; CNAX='CNAX'; CNAY='CNAY'
+        CODA='CODA'; CVIG='CVIG'; CVOL='CVOL'; DISA='DISA'; DISC='DISC'; DISG='DISG'
+        ETGT='ETGT'; ETLT='ETLT'; ETVA='ETVA'; FDMO='FDMO'; FDRE='FDRE'; FICL='FICL'
+        FICP='FICP'; FTGT='FTGT'; FTLT='FTLT'; GAOI='GAOI'; GBSD='GBSD'; GBPD='GBPD'
+        GBPP='GBPP'; GBPR='GBPR'; GBPS='GBPS'; GBSW='GBSW'; GBSP='GBSP'; GBSR='GBSR'
+        GBSS='GBSS'; GBPZ='GBPZ'; GCOS='GCOS'; GENC='GENC'; GENF='GENF'; GMTA='GMTA'
+        GMTS='GMTS'; GMTT='GMTT'; GMTN='GMTN'; GMTX='GMTX'; GPIM='GPIM'; GRMN='GRMN'
+        GRMX='GRMX'; HACG='HACG'; HHCN='HHCN'; I1GT='I1GT'; I1LT='I1LT'; I1VA='I1VA'
+        I2GT='I2GT'; I2LT='I2LT'; I2VA='I2VA'; I3GT='I3GT'; I3LT='I3LT'; I3VA='I3VA'
+        I4GT='I4GT'; I4LT='I4LT'; I4VA='I4VA'; I5GT='I5GT'; I5LT='I5LT'; I5VA='I5VA'
+        I6GT='I6GT'; I6LT='I6LT'; I6VA='I6VA'; IMAE='IMAE'; ISNA='ISNA'; LINV='LINV'
+        LONA='LONA'; LPTD='LPTD'; MECA='MECA'; MECS='MECS'; MECT='MECT'; MSWA='MSWA'
+        MSWS='MSWS'; MSWT='MSWT'; MSWN='MSWN'; MSWX='MSWX'; NPGT='NPGT'; NPLT='NPLT'
+        NPVA='NPVA'; NPXG='NPXG'; NPXL='NPXL'; NPXV='NPXV'; NPYG='NPYG'; NPYL='NPYL'
+        NPYV='NPYV'; NPZG='NPZG'; NPZL='NPZL'; NPZV='NPZV'; NTXG='NTXG'; NTXL='NTXL'
+        NTXV='NTXV'; NTYG='NTYG'; NTYL='NTYL'; NTYV='NTYV'; NTZG='NTZG'; NTZL='NTZL'
+        NTZV='NTZV'; OBSN='OBSN'; OGSS='OGSS'; OPDC='OPDC'; OPTH='OPTH'; OSCD='OSCD'
+        P1GT='P1GT'; P1LT='P1LT'; P1VA='P1VA'; P2GT='P2GT'; P2LT='P2LT'; P2VA='P2VA'
+        P3GT='P3GT'; P3LT='P3LT'; P3VA='P3VA'; P4GT='P4GT'; P4LT='P4LT'; P4VA='P4VA'
+        P5GT='P5GT'; P5LT='P5LT'; P5VA='P5VA'; P6GT='P6GT'; P6LT='P6LT'; P6VA='P6VA'
+        P7GT='P7GT'; P7LT='P7LT'; P7VA='P7VA'; P8GT='P8GT'; P8LT='P8LT'; P8VA='P8VA'
+        PANA='PANA'; PANB='PANB'; PANC='PANC'; PARA='PARA'; PARB='PARB'; PARC='PARC'
+        PARR='PARR'; PARX='PARX'; PARY='PARY'; PARZ='PARZ'; PATX='PATX'; PATY='PATY'
+        PETC='PETC'; PETZ='PETZ'; PMGT='PMGT'; PMLT='PMLT'; PMVA='PMVA'; PRIM='PRIM'
+        QOAC='QOAC'; QSUM='QSUM'; RAGA='RAGA'; RAGB='RAGB'; RAGC='RAGC'; RECI='RECI'
+        REVR='REVR'; SAGX='SAGX'; SAGY='SAGY'; SKIS='SKIS'; SKIN='SKIN'; SMIA='SMIA'
+        SPCH='SPCH'; SSLP='SSLP'; SSAG='SSAG'; SVIG='SVIG'; TGTH='TGTH'; TMAS='TMAS'
+        TOLR='TOLR'; TTGT='TTGT'; TTLT='TTLT'; TTVA='TTVA'; XDVA='XDVA'; XDGT='XDGT'
+        XDLT='XDLT'; XENC='XENC'; XENF='XENF'; XNEA='XNEA'; XNEG='XNEG'; XNET='XNET'
+        XXEA='XXEA'; XXEG='XXEG'; XXET='XXET'; YNIP='YNIP'; CEHX='CEHX'; CEHY='CEHY'
+        SSLP='SSLP'
+
 
 #=============本来打算构建一个映射词典来简化操作数的参数设置，但由于ZOSAPI的复杂性和多样性，让GPT生成的不准确，暂时先不使用。===========
     # _operand_parameter_maps = {
