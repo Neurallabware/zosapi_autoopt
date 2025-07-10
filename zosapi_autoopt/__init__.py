@@ -2,6 +2,7 @@
 Zemax OpticStudio Python API 封装库
 提供简化的接口用于光学分析和优化
 
+
 模块说明:
 - zosapi_core: 核心连接和管理功能
 - zosapi_utils: 数据处理和转换工具
@@ -9,10 +10,12 @@ Zemax OpticStudio Python API 封装库
 - zosapi_analysis: 光学分析功能
 - example_usage: 使用示例
 
+
 Author: allin-love
 Date: 2025-06-29
 Version: 1.0.0
 """
+
 
 from .zosapi_core import ZOSAPIManager, create_zosapi_manager
 from .zosapi_analysis import ZOSAnalyzer, BatchAnalyzer
@@ -23,6 +26,7 @@ from .zosapi_layout import ZOSLayoutAnalyzer
 from .zosapi_system import SystemParameterManager, create_system_parameter_manager
 from .zosapi_lde import LensDesignManager, create_lens_design_manager
 from .merit_function import MeritFunctionEditor
+
 
 __version__ = "1.0.0"
 __author__ = "allin-love"
@@ -51,9 +55,11 @@ __all__ = [
     
 ]
 
+
 def get_version():
     """获取版本信息"""
     return __version__
+
 
 def get_info():
     """获取库信息"""

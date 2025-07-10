@@ -117,6 +117,7 @@ class MeritFunctionEditor:
         XXEA='XXEA'; XXEG='XXEG'; XXET='XXET'; YNIP='YNIP'; CEHX='CEHX'; CEHY='CEHY'
         SSLP='SSLP'
 
+
 #=============本来打算构建一个映射词典来简化操作数的参数设置，但由于ZOSAPI的复杂性和多样性，让GPT生成的不准确，暂时先不使用。===========
     # _operand_parameter_maps = {
     #     # 默认映射: 适用于大多数标准像差操作数

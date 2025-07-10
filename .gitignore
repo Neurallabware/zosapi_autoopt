@@ -1,1 +1,51 @@
+# Output directories
 /output/
+output/
+
+/local/
+
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.Python
+env/
+.env
+.venv/
+venv/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+
+# Temporary documentation files (not part of the project)
+PR_SETUP_GUIDE.md
+PR_SUMMARY.md
+PULL_REQUEST_TEMPLATE.md
+FINAL_PR_INSTRUCTIONS.md
+github_issue.md
+test_fix.py
+test_fixes.py
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/

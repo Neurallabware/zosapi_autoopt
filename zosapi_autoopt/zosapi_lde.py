@@ -303,10 +303,10 @@ class LensDesignManager:
             # 公式: param_index = (order / 2) - 1
             param_index = int(order / 2) - 1
             
-            # 使用API的枚举来获取正确的参数列，确保健壮性
-            param_column = self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1 + param_index
+            # Convert enum to integer and add the offset to avoid enum arithmetic issues
+            param_column_int = int(self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1) + param_index
             
-            cell = surface.GetCellAt(param_column)
+            cell = surface.GetCellAt(param_column_int)
             cell.DoubleValue = value
             logger.info(f"  - 已设置表面 {surface_pos} 的 {order} 阶非球面系数 (Par{param_index + 1}) 为: {value}")
             
@@ -491,7 +491,7 @@ class LensDesignManager:
         将单个表面参数设置为变量（简化版）。
 
         Args:
-            surface_pos: 表面位置
+            surface_pos: 表面位置, int
             param_name: 参数名称，支持 'radius', 'thickness', 'conic' 等
             status: 变量状态，True表示启用，False表示禁用
             
@@ -529,7 +529,7 @@ class LensDesignManager:
         我们只使用最稳定可靠的 MakeSolveVariable 方法。
         """
         try:
-            cell = surface.GetCellAt(column_type)
+            cell = surface.GetCellAt(int(column_type))
             cell.MakeSolveVariable()
             solver_data = cell.GetSolveData()
             solve_type = solver_data.Type if solver_data else None
@@ -628,13 +628,13 @@ class LensDesignManager:
                 param_index = int(order / 2) - 1
                 
                 try:
-                    param_column = self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1 + param_index
-                    cell = surface.GetCellAt(param_column)
+                    # Convert enum to integer and add the offset to avoid enum arithmetic issues
+                    param_column_int = int(self.ZOSAPI.Editors.LDE.SurfaceColumn.Par1) + param_index
+                    cell = surface.GetCellAt(param_column_int)
                     cell.MakeSolveVariable()
                     logger.info(f"  - 已将表面 {surface_pos} 的 {order} 阶非球面系数 (Par{param_index + 1}) 设为变量。")
                 except Exception as e:
                     logger.error(f"为表面 {surface_pos} 的 {order} 阶系数设置变量失败: {e}")
-
 
 
 
@@ -944,7 +944,15 @@ class LensDesignManager:
         }
         if param_name.lower() not in param_column_map:
             raise ValueError(f"不支持的参数名称: {param_name}")
-        return surface.GetCellAt(param_column_map[param_name.lower()])
+        
+        column_enum = param_column_map[param_name.lower()]
+        # Convert enum to integer value to ensure compatibility with GetCellAt
+        try:
+            return surface.GetCellAt(int(column_enum))
+        except:
+            # Fallback: try with enum directly (for compatibility with different ZOS-API versions)
+            return surface.GetCellAt(column_enum)
+
 
     def set_pickup_solve(self, surface_pos: int, param_name: str, from_surface: int, scale: float = 1.0, offset: float = 0.0, from_column: str = None):
         """设置拾取 (Pickup) 求解器。"""
